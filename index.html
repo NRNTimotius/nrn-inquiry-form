@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>NRN — Inquiry Form</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Mono:wght@400;500&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600;9..40,700&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+ --green:#233a2c;--green2:#2f4d3a;--green4:#2d6a4f;--green-bg:#e6f1ea;
+ --gold:#c8a96e;--gold2:#e8c98e;--gold-bg:#f5ecd8;
+ --cream:#f6f2ea;--cream2:#ece5d8;--cream3:#e0d8c8;--white:#fff;
+ --red:#9b2226;--red-bg:#f7e3e3;--amber:#7f5000;--amber-bg:#fff0cc;
+ --text:#241c12;--text2:#4f4534;--text3:#8a8170;
+ --radius:13px;--shadow:0 4px 22px rgba(35,40,30,.10);
+}
+body{font-family:'DM Sans',sans-serif;background:var(--cream);color:var(--text);font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased}
+.num{font-family:'DM Mono',monospace;font-variant-numeric:tabular-nums}
+.header{background:var(--green);padding:18px 26px;position:relative;overflow:hidden}
+.header::before{content:'';position:absolute;top:-70px;right:-30px;width:260px;height:260px;border-radius:50%;background:radial-gradient(circle,rgba(200,169,110,.18),transparent 70%)}
+.header-in{max-width:1100px;margin:0 auto;position:relative;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.eyebrow{font-family:'DM Mono',monospace;font-size:10px;letter-spacing:.2em;color:var(--gold);text-transform:uppercase;margin-bottom:4px}
+.header h1{font-family:'DM Serif Display',serif;font-size:22px;color:#fff;line-height:1.1}
+.header h1 em{color:var(--gold2);font-style:normal}
+.spacer{flex:1}
+.brandbadge{display:none;align-items:center;gap:9px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.16);border-radius:10px;padding:7px 12px;color:#fff;font-size:13px;font-weight:600}
+.brandbadge.show{display:flex}
+.logout{background:transparent;border:1px solid rgba(255,255,255,.3);color:#fff;border-radius:8px;padding:6px 11px;cursor:pointer;font-size:12px;font-family:inherit}
+.logout:hover{background:rgba(255,255,255,.12)}
+.wrap{max-width:1100px;margin:0 auto;padding:22px 18px 70px}
+.card{background:var(--white);border-radius:var(--radius);box-shadow:var(--shadow);padding:18px 20px}
+.btn{height:42px;padding:0 18px;border:none;border-radius:10px;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer}
+.btn-gold{background:var(--gold);color:#3a2a10}
+.btn-gold:hover{background:var(--gold2)}
+.btn-gold:disabled{opacity:.5;cursor:not-allowed}
+.field{display:flex;flex-direction:column;gap:5px;margin-bottom:13px}
+.field label{font-size:11.5px;font-weight:600;color:var(--text2)}
+.field input,.field select{height:42px;padding:0 12px;border:1.5px solid var(--cream2);border-radius:10px;background:var(--cream);font-size:14px;font-family:inherit;color:var(--text);outline:none}
+.field input:focus,.field select:focus{border-color:var(--green4);background:#fff}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media(max-width:560px){.row2{grid-template-columns:1fr}}
+/* login */
+#login{max-width:420px;margin:40px auto}
+#login h2{font-family:'DM Serif Display',serif;font-size:22px;color:var(--green);font-weight:400;margin-bottom:3px}
+#login .muted{color:var(--text3);font-size:12.5px;margin-bottom:16px}
+.err{background:var(--red-bg);color:var(--red);border-radius:9px;padding:9px 12px;font-size:12.5px;margin-bottom:12px;display:none}
+.err.show{display:block}
+/* app */
+#app{display:none}
+#app.show{display:block}
+.section-title{font-family:'DM Serif Display',serif;font-size:18px;color:var(--green);font-weight:400;margin:24px 0 11px}
+.kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:11px}
+@media(max-width:760px){.kpis{grid-template-columns:repeat(2,1fr)}}
+.kpi{background:var(--white);border-radius:var(--radius);box-shadow:var(--shadow);padding:13px 15px}
+.kpi h3{font-family:'DM Mono',monospace;font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--green4);font-weight:500}
+.kpi .v{font-family:'DM Serif Display',serif;font-size:24px;color:var(--green);margin-top:3px}
+.kpi.deal .v{color:var(--green4)}.kpi.wait .v{color:var(--amber)}.kpi.cancel .v{color:var(--red)}
+.kpi.nominal{grid-column:span 1}.kpi.nominal .v{font-size:18px}
+table{width:100%;border-collapse:collapse;font-size:12.6px}
+thead th{text-align:left;color:var(--text3);font-weight:600;font-size:10px;text-transform:uppercase;letter-spacing:.05em;font-family:'DM Mono',monospace;padding:9px 10px;border-bottom:1.5px solid var(--cream2);white-space:nowrap}
+tbody td{padding:9px 10px;border-bottom:1px solid var(--cream2);white-space:nowrap}
+tbody tr:hover{background:var(--cream)}
+.tablewrap{overflow:auto;border:1px solid var(--cream2);border-radius:var(--radius);background:var(--white);box-shadow:var(--shadow)}
+.pill{font-size:10.5px;font-weight:700;padding:2px 9px;border-radius:999px;display:inline-block}
+.pill.deal{background:var(--green-bg);color:var(--green4)}
+.pill.wait{background:var(--amber-bg);color:var(--amber)}
+.pill.cancel{background:var(--red-bg);color:var(--red)}
+.toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%) translateY(120px);background:var(--green);color:#fff;padding:12px 22px;border-radius:11px;font-size:13.5px;font-weight:600;box-shadow:0 8px 30px rgba(0,0,0,.25);transition:transform .35s;z-index:80}
+.toast.show{transform:translateX(-50%) translateY(0)}
+.toast.err{background:var(--red)}
+.note{font-size:11px;color:var(--text3);margin-top:8px}
+.iconbtn{cursor:pointer;border:1px solid var(--cream2);background:var(--white);color:var(--text2);font-size:11px;padding:4px 9px;border-radius:7px;font-family:inherit;font-weight:600}
+.iconbtn:hover{border-color:var(--green4);color:var(--green)}
+/* modal */
+.overlay{position:fixed;inset:0;background:rgba(30,38,28,.55);display:none;place-items:center;z-index:90;padding:18px}
+.overlay.show{display:grid}
+.modal{width:min(560px,96vw);max-height:92vh;overflow:auto;background:var(--white);border-radius:16px;padding:22px}
+.modal h2{font-family:'DM Serif Display',serif;font-size:20px;color:var(--green);font-weight:400;margin-bottom:3px}
+.modal .muted{color:var(--text3);font-size:12.5px;margin-bottom:14px}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-in">
+    <div>
+      <div class="eyebrow">NRN Holding · Sales Inquiry</div>
+      <h1>Inquiry <em>Form</em></h1>
+    </div>
+    <div class="spacer"></div>
+    <div class="brandbadge" id="brandBadge">
+      <span id="badgeBrand">—</span>
+      <button class="logout" id="logoutBtn">Keluar</button>
+    </div>
+  </div>
+</div>
+
+<div class="wrap">
+
+  <!-- LOGIN -->
+  <div class="card" id="login">
+    <h2>Masuk Tim Brand</h2>
+    <p class="muted">Pilih brand kamu dan masukkan password tim.</p>
+    <div class="err" id="loginErr"></div>
+    <div class="field">
+      <label>Brand</label>
+      <select id="loginBrand">
+        <option value="">— Pilih Brand —</option>
+        <option>Revolt Industry</option>
+        <option>Radja Leather</option>
+        <option>Rove Gifts</option>
+        <option>Winddam ID</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>Password</label>
+      <input type="password" id="loginPw" placeholder="Password tim brand" />
+    </div>
+    <button class="btn btn-gold" id="loginBtn" style="width:100%">Masuk →</button>
+  </div>
+
+  <!-- APP -->
+  <div id="app">
+    <!-- Summary -->
+    <div class="section-title">📊 Summary Inquiry</div>
+    <div class="kpis">
+      <div class="kpi"><h3>Total</h3><div class="v num" id="sTotal">0</div></div>
+      <div class="kpi deal"><h3>✅ Deal</h3><div class="v num" id="sDeal">0</div></div>
+      <div class="kpi wait"><h3>⏳ Wait</h3><div class="v num" id="sWait">0</div></div>
+      <div class="kpi cancel"><h3>❌ Cancel</h3><div class="v num" id="sCancel">0</div></div>
+      <div class="kpi nominal"><h3>💰 Nominal Deal</h3><div class="v num" id="sNominal">Rp 0</div></div>
+    </div>
+
+    <!-- Form -->
+    <div class="section-title">➕ Input Inquiry Baru</div>
+    <div class="card">
+      <div class="row2">
+        <div class="field"><label>Nama Customer *</label><input id="fCustomer" placeholder="Nama customer" /></div>
+        <div class="field"><label>Produk Inquiry</label><input id="fProduct" placeholder="Produk yang ditanyakan" /></div>
+      </div>
+      <div class="row2">
+        <div class="field"><label>Est. Nominal (Rp)</label><input type="number" id="fNominal" placeholder="0" min="0" /></div>
+        <div class="field"><label>Status</label>
+          <select id="fStatus">
+            <option value="⏳ Wait for Confirmation">⏳ Wait for Confirmation</option>
+            <option value="✅ Deal">✅ Deal</option>
+            <option value="❌ Cancel">❌ Cancel</option>
+          </select>
+        </div>
+      </div>
+      <div class="row2">
+        <div class="field"><label>Contact Via</label>
+          <select id="fContactVia">
+            <option>Instagram</option><option>WhatsApp</option><option>Walk-in</option>
+            <option>Referral</option><option>Marketplace</option><option>Lainnya</option>
+          </select>
+        </div>
+        <div class="field"><label>Username IG / No HP</label><input id="fContact" placeholder="@username / 08xx" /></div>
+      </div>
+      <div class="row2">
+        <div class="field"><label>Sales PIC</label><input id="fPic" placeholder="Nama sales" /></div>
+        <div class="field"><label>Notes</label><input id="fNotes" placeholder="Opsional" /></div>
+      </div>
+      <button class="btn btn-gold" id="submitBtn" style="width:100%">↑ Submit Inquiry</button>
+      <div class="note">Data langsung masuk ke Google Sheets &amp; Inquiry Dashboard.</div>
+    </div>
+
+    <!-- List -->
+    <div class="section-title">📑 Inquiry Brand Ini</div>
+    <div class="tablewrap">
+      <table id="listTable">
+        <thead><tr><th>Tanggal</th><th>Customer</th><th>Produk</th><th>Est. Nominal</th><th>Via</th><th>Status</th><th>PIC</th><th>Aksi</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<!-- EDIT MODAL -->
+<div class="overlay" id="ovEdit">
+  <div class="modal">
+    <h2>Edit Inquiry</h2>
+    <p class="muted">Ubah data inquiry, termasuk status.</p>
+    <input type="hidden" id="eRow" />
+    <div class="row2">
+      <div class="field"><label>Nama Customer *</label><input id="eCustomer" /></div>
+      <div class="field"><label>Produk Inquiry</label><input id="eProduct" /></div>
+    </div>
+    <div class="row2">
+      <div class="field"><label>Est. Nominal (Rp)</label><input type="number" id="eNominal" min="0" /></div>
+      <div class="field"><label>Status</label>
+        <select id="eStatus">
+          <option value="⏳ Wait for Confirmation">⏳ Wait for Confirmation</option>
+          <option value="✅ Deal">✅ Deal</option>
+          <option value="❌ Cancel">❌ Cancel</option>
+        </select>
+      </div>
+    </div>
+    <div class="row2">
+      <div class="field"><label>Contact Via</label>
+        <select id="eContactVia">
+          <option>Instagram</option><option>WhatsApp</option><option>Walk-in</option>
+          <option>Referral</option><option>Marketplace</option><option>Lainnya</option>
+        </select>
+      </div>
+      <div class="field"><label>Username IG / No HP</label><input id="eContact" /></div>
+    </div>
+    <div class="row2">
+      <div class="field"><label>Sales PIC</label><input id="ePic" /></div>
+      <div class="field"><label>Notes</label><input id="eNotes" /></div>
+    </div>
+    <div class="row2" style="margin-top:4px">
+      <button class="btn btn-gold" id="saveEditBtn">💾 Simpan Perubahan</button>
+      <button class="iconbtn" id="cancelEditBtn" style="height:42px">Batal</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ====== KONFIG ====== */
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyxK1M5xtaXSUO2_J5wbVPsc5QYsEIuIxrFCpFttce-KvSuTV7rkb9NSRxye5cIS2QX/exec';
+
+let auth = { brand: '', password: '' };
+
+const $ = id => document.getElementById(id);
+const fmtRp = n => 'Rp ' + (Number(n)||0).toLocaleString('id-ID');
+
+function toast(msg, isErr){
+  const t = $('toast'); t.textContent = msg;
+  t.className = 'toast show' + (isErr ? ' err' : '');
+  setTimeout(()=> t.className = 'toast' + (isErr ? ' err' : ''), 3200);
+}
+
+/* ====== LOGIN ====== */
+$('loginBtn').onclick = login;
+$('loginPw').addEventListener('keydown', e => { if(e.key === 'Enter') login(); });
+
+async function login(){
+  const brand = $('loginBrand').value;
+  const pw    = $('loginPw').value;
+  const err   = $('loginErr');
+  err.className = 'err';
+  if(!brand){ err.textContent = 'Pilih brand dulu.'; err.className='err show'; return; }
+  if(!pw){ err.textContent = 'Masukkan password.'; err.className='err show'; return; }
+
+  $('loginBtn').disabled = true; $('loginBtn').textContent = 'Memeriksa…';
+  try{
+    const url = APPS_SCRIPT_URL + '?action=getInquiries&brand=' + encodeURIComponent(brand) + '&password=' + encodeURIComponent(pw);
+    const res = await fetch(url);
+    const data = await res.json();
+    if(!data.success){ err.textContent = data.error || 'Login gagal.'; err.className='err show'; return; }
+
+    auth = { brand: brand, password: pw };
+    $('login').style.display = 'none';
+    $('app').classList.add('show');
+    $('brandBadge').classList.add('show');
+    $('badgeBrand').textContent = brand;
+    renderSummary(data.summary); renderList(data.inquiries);
+  }catch(e){
+    err.textContent = 'Gagal terhubung ke server. Cek koneksi / URL Web App.';
+    err.className = 'err show';
+  }finally{
+    $('loginBtn').disabled = false; $('loginBtn').textContent = 'Masuk →';
+  }
+}
+
+$('logoutBtn').onclick = ()=>{
+  auth = { brand:'', password:'' };
+  $('app').classList.remove('show');
+  $('brandBadge').classList.remove('show');
+  $('login').style.display = '';
+  $('loginPw').value = '';
+};
+
+/* ====== RENDER ====== */
+function renderSummary(s){
+  s = s || {};
+  $('sTotal').textContent   = s.total || 0;
+  $('sDeal').textContent    = s.deal || 0;
+  $('sWait').textContent    = s.wait || 0;
+  $('sCancel').textContent  = s.cancel || 0;
+  $('sNominal').textContent = fmtRp(s.nominalDeal || 0);
+}
+function statusPill(st){
+  if(st.indexOf('Deal')>=0)   return '<span class="pill deal">✅ Deal</span>';
+  if(st.indexOf('Cancel')>=0) return '<span class="pill cancel">❌ Cancel</span>';
+  return '<span class="pill wait">⏳ Wait</span>';
+}
+let currentList = [];
+function renderList(list){
+  currentList = list || [];
+  const tb = $('listTable').querySelector('tbody'); tb.innerHTML='';
+  if(!currentList.length){
+    tb.innerHTML = '<tr><td colspan="8" style="color:var(--text3)">Belum ada inquiry.</td></tr>'; return;
+  }
+  currentList.forEach((x, i)=>{
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${x.timestamp||'—'}</td><td>${x.customer||'—'}</td><td>${x.product||'—'}</td>
+      <td class="num">${fmtRp(x.nominal)}</td><td>${x.contactVia||'—'}</td>
+      <td>${statusPill(x.status||'')}</td><td>${x.salesPic||'—'}</td>
+      <td><button class="iconbtn" data-edit="${i}">✎ Edit</button></td>`;
+    tb.appendChild(tr);
+  });
+  tb.querySelectorAll('[data-edit]').forEach(b=> b.onclick = ()=> openEdit(+b.dataset.edit));
+}
+
+/* ====== EDIT ====== */
+function openEdit(i){
+  const x = currentList[i]; if(!x) return;
+  $('eRow').value      = x.row;
+  $('eCustomer').value = x.customer || '';
+  $('eProduct').value  = x.product || '';
+  $('eNominal').value  = x.nominal || '';
+  $('eStatus').value   = x.status && x.status.indexOf('Deal')>=0 ? '✅ Deal'
+                       : x.status && x.status.indexOf('Cancel')>=0 ? '❌ Cancel'
+                       : '⏳ Wait for Confirmation';
+  $('eContactVia').value = x.contactVia || 'Instagram';
+  $('eContact').value  = x.contact || '';
+  $('ePic').value      = x.salesPic || '';
+  $('eNotes').value    = x.notes || '';
+  $('ovEdit').classList.add('show');
+}
+$('cancelEditBtn').onclick = ()=> $('ovEdit').classList.remove('show');
+$('ovEdit').onclick = e => { if(e.target.id==='ovEdit') $('ovEdit').classList.remove('show'); };
+
+$('saveEditBtn').onclick = async ()=>{
+  const customer = $('eCustomer').value.trim();
+  if(!customer){ toast('Nama customer wajib diisi.', true); return; }
+  const payload = {
+    type: 'inquiryUpdate',
+    brand: auth.brand,
+    password: auth.password,
+    row: $('eRow').value,
+    customerName: customer,
+    product: $('eProduct').value.trim(),
+    nominal: parseFloat($('eNominal').value) || 0,
+    status: $('eStatus').value,
+    contactVia: $('eContactVia').value,
+    contactDetail: $('eContact').value.trim(),
+    salesPic: $('ePic').value.trim(),
+    notes: $('eNotes').value.trim(),
+  };
+  $('saveEditBtn').disabled = true; $('saveEditBtn').textContent = 'Menyimpan…';
+  try{
+    const res = await fetch(APPS_SCRIPT_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json();
+    if(!data.success){ toast(data.error || 'Gagal menyimpan.', true); return; }
+    toast('✅ Inquiry diperbarui!');
+    $('ovEdit').classList.remove('show');
+    await refresh();
+  }catch(e){
+    toast('Gagal terhubung ke server.', true);
+  }finally{
+    $('saveEditBtn').disabled = false; $('saveEditBtn').textContent = '💾 Simpan Perubahan';
+  }
+};
+
+/* ====== SUBMIT ====== */
+$('submitBtn').onclick = submitInquiry;
+
+async function submitInquiry(){
+  const customer = $('fCustomer').value.trim();
+  if(!customer){ toast('Nama customer wajib diisi.', true); return; }
+
+  const payload = {
+    type: 'inquiry',
+    brand: auth.brand,
+    password: auth.password,
+    customerName: customer,
+    product: $('fProduct').value.trim(),
+    nominal: parseFloat($('fNominal').value) || 0,
+    status: $('fStatus').value,
+    contactVia: $('fContactVia').value,
+    contactDetail: $('fContact').value.trim(),
+    salesPic: $('fPic').value.trim(),
+    notes: $('fNotes').value.trim(),
+  };
+
+  $('submitBtn').disabled = true; $('submitBtn').textContent = 'Mengirim…';
+  try{
+    const res = await fetch(APPS_SCRIPT_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json();
+    if(!data.success){ toast(data.error || 'Gagal submit.', true); return; }
+
+    toast('✅ Inquiry tersimpan!');
+    // Reset form
+    ['fCustomer','fProduct','fNominal','fContact','fPic','fNotes'].forEach(id=> $(id).value='');
+    $('fStatus').selectedIndex = 0; $('fContactVia').selectedIndex = 0;
+    await refresh();
+  }catch(e){
+    toast('Gagal terhubung ke server.', true);
+  }finally{
+    $('submitBtn').disabled = false; $('submitBtn').textContent = '↑ Submit Inquiry';
+  }
+}
+
+async function refresh(){
+  try{
+    const url = APPS_SCRIPT_URL + '?action=getInquiries&brand=' + encodeURIComponent(auth.brand) + '&password=' + encodeURIComponent(auth.password);
+    const res = await fetch(url);
+    const data = await res.json();
+    if(data.success){ renderSummary(data.summary); renderList(data.inquiries); }
+  }catch(e){ /* diam */ }
+}
+</script>
+</body>
+</html>
