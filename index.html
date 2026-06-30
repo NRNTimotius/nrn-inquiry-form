@@ -13,6 +13,7 @@
  --gold:#c8a96e;--gold2:#e8c98e;--gold-bg:#f5ecd8;
  --cream:#f6f2ea;--cream2:#ece5d8;--cream3:#e0d8c8;--white:#fff;
  --red:#9b2226;--red-bg:#f7e3e3;--amber:#7f5000;--amber-bg:#fff0cc;
+ --blue:#1d4e6f;--blue-bg:#e3eef5;
  --text:#241c12;--text2:#4f4534;--text3:#8a8170;
  --radius:13px;--shadow:0 4px 22px rgba(35,40,30,.10);
 }
@@ -51,26 +52,45 @@ body{font-family:'DM Sans',sans-serif;background:var(--cream);color:var(--text);
 #app{display:none}
 #app.show{display:block}
 .section-title{font-family:'DM Serif Display',serif;font-size:18px;color:var(--green);font-weight:400;margin:24px 0 11px}
-.kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:11px}
+.kpis{display:grid;grid-template-columns:repeat(6,1fr);gap:11px}
 @media(max-width:760px){.kpis{grid-template-columns:repeat(2,1fr)}}
 .kpi{background:var(--white);border-radius:var(--radius);box-shadow:var(--shadow);padding:13px 15px}
 .kpi h3{font-family:'DM Mono',monospace;font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--green4);font-weight:500}
 .kpi .v{font-family:'DM Serif Display',serif;font-size:24px;color:var(--green);margin-top:3px}
 .kpi.deal .v{color:var(--green4)}.kpi.wait .v{color:var(--amber)}.kpi.cancel .v{color:var(--red)}
+.kpi.conv .v{color:var(--blue)}
 .kpi.nominal{grid-column:span 1}.kpi.nominal .v{font-size:18px}
+/* tabs */
+.tabs{display:flex;gap:8px;margin:24px 0 11px;flex-wrap:wrap}
+.tab{font-family:inherit;font-size:13px;font-weight:600;padding:8px 16px;border-radius:10px;border:1.5px solid var(--cream2);background:var(--white);color:var(--text2);cursor:pointer}
+.tab.active{background:var(--green);color:#fff;border-color:var(--green)}
+.view{display:none}.view.show{display:block}
+/* filter bar */
+.filterbar{display:flex;gap:9px;flex-wrap:wrap;margin-bottom:11px}
+.filterbar input,.filterbar select{height:38px;padding:0 11px;border:1.5px solid var(--cream2);border-radius:9px;background:var(--white);font-size:13px;font-family:inherit;color:var(--text);outline:none}
+.filterbar input{flex:1;min-width:180px}
+.filterbar input:focus,.filterbar select:focus{border-color:var(--green4)}
 table{width:100%;border-collapse:collapse;font-size:12.6px}
 thead th{text-align:left;color:var(--text3);font-weight:600;font-size:10px;text-transform:uppercase;letter-spacing:.05em;font-family:'DM Mono',monospace;padding:9px 10px;border-bottom:1.5px solid var(--cream2);white-space:nowrap}
 tbody td{padding:9px 10px;border-bottom:1px solid var(--cream2);white-space:nowrap}
 tbody tr:hover{background:var(--cream)}
+tbody tr.aging{background:var(--red-bg)}
+tbody tr.aging:hover{background:#f3d5d5}
 .tablewrap{overflow:auto;border:1px solid var(--cream2);border-radius:var(--radius);background:var(--white);box-shadow:var(--shadow)}
 .pill{font-size:10.5px;font-weight:700;padding:2px 9px;border-radius:999px;display:inline-block}
 .pill.deal{background:var(--green-bg);color:var(--green4)}
 .pill.wait{background:var(--amber-bg);color:var(--amber)}
 .pill.cancel{background:var(--red-bg);color:var(--red)}
+.tag{font-size:10px;font-weight:700;padding:2px 8px;border-radius:6px;display:inline-block;background:var(--cream2);color:var(--text2)}
+.tag.wedding{background:#fbe4ec;color:#a8326a}
+.tag.corporate{background:var(--blue-bg);color:var(--blue)}
+.tag.others{background:var(--cream2);color:var(--text2)}
+.age{font-size:9.5px;font-weight:700;color:var(--red);margin-left:5px;white-space:nowrap}
 .toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%) translateY(120px);background:var(--green);color:#fff;padding:12px 22px;border-radius:11px;font-size:13.5px;font-weight:600;box-shadow:0 8px 30px rgba(0,0,0,.25);transition:transform .35s;z-index:80}
 .toast.show{transform:translateX(-50%) translateY(0)}
 .toast.err{background:var(--red)}
 .note{font-size:11px;color:var(--text3);margin-top:8px}
+.muted-empty{color:var(--text3)}
 .iconbtn{cursor:pointer;border:1px solid var(--cream2);background:var(--white);color:var(--text2);font-size:11px;padding:4px 9px;border-radius:7px;font-family:inherit;font-weight:600}
 .iconbtn:hover{border-color:var(--green4);color:var(--green)}
 /* modal */
@@ -128,8 +148,9 @@ tbody tr:hover{background:var(--cream)}
     <div class="kpis">
       <div class="kpi"><h3>Total</h3><div class="v num" id="sTotal">0</div></div>
       <div class="kpi deal"><h3>✅ Deal</h3><div class="v num" id="sDeal">0</div></div>
-      <div class="kpi wait"><h3>⏳ Wait</h3><div class="v num" id="sWait">0</div></div>
+      <div class="kpi wait"><h3>📝 Quotation</h3><div class="v num" id="sWait">0</div></div>
       <div class="kpi cancel"><h3>❌ Cancel</h3><div class="v num" id="sCancel">0</div></div>
+      <div class="kpi conv"><h3>📈 Conversion</h3><div class="v num" id="sConv">0%</div></div>
       <div class="kpi nominal"><h3>💰 Nominal Deal</h3><div class="v num" id="sNominal">Rp 0</div></div>
     </div>
 
@@ -141,10 +162,19 @@ tbody tr:hover{background:var(--cream)}
         <div class="field"><label>Produk Inquiry</label><input id="fProduct" placeholder="Produk yang ditanyakan" /></div>
       </div>
       <div class="row2">
+        <div class="field"><label>Jenis Inquiry</label>
+          <select id="fJenis">
+            <option value="">— Pilih —</option>
+            <option>Wedding</option><option>Corporate</option><option>Others</option>
+          </select>
+        </div>
+        <div class="field"><label>Tanggal Acara</label><input type="date" id="fTanggal" /></div>
+      </div>
+      <div class="row2">
         <div class="field"><label>Est. Nominal (Rp)</label><input type="number" id="fNominal" placeholder="0" min="0" /></div>
         <div class="field"><label>Status</label>
           <select id="fStatus">
-            <option value="⏳ Wait for Confirmation">⏳ Wait for Confirmation</option>
+            <option value="📝 Quotation">📝 Quotation</option>
             <option value="✅ Deal">✅ Deal</option>
             <option value="❌ Cancel">❌ Cancel</option>
           </select>
@@ -160,20 +190,56 @@ tbody tr:hover{background:var(--cream)}
         <div class="field"><label>Username IG / No HP</label><input id="fContact" placeholder="@username / 08xx" /></div>
       </div>
       <div class="row2">
+        <div class="field"><label>Referral (WO / EO / Nama)</label><input id="fReferral" placeholder="Sumber referral" /></div>
         <div class="field"><label>Sales PIC</label><input id="fPic" placeholder="Nama sales" /></div>
-        <div class="field"><label>Notes</label><input id="fNotes" placeholder="Opsional" /></div>
       </div>
+      <div class="field"><label>Notes</label><input id="fNotes" placeholder="Opsional" /></div>
       <button class="btn btn-gold" id="submitBtn" style="width:100%">↑ Submit Inquiry</button>
-      <div class="note">Data langsung masuk ke Google Sheets &amp; Inquiry Dashboard.</div>
+      <div class="note">Data langsung masuk ke Google Sheets &amp; Inquiry Dashboard. Semua field selain Nama Customer opsional — bisa diedit nanti.</div>
     </div>
 
-    <!-- List -->
-    <div class="section-title">📑 Inquiry Brand Ini</div>
-    <div class="tablewrap">
-      <table id="listTable">
-        <thead><tr><th>Tanggal</th><th>Customer</th><th>Produk</th><th>Est. Nominal</th><th>Via</th><th>Status</th><th>PIC</th><th>Aksi</th></tr></thead>
-        <tbody></tbody>
-      </table>
+    <!-- Tabs -->
+    <div class="tabs">
+      <button class="tab active" id="tabInquiry">📑 Inquiry Brand Ini</button>
+      <button class="tab" id="tabCustomer">👥 Customer Database</button>
+    </div>
+
+    <!-- View: Inquiry list -->
+    <div class="view show" id="viewInquiry">
+      <div class="filterbar">
+        <input id="qSearch" placeholder="🔍 Cari customer / produk / referral…" />
+        <select id="qStatus">
+          <option value="">Semua Status</option>
+          <option value="📝 Quotation">📝 Quotation</option>
+          <option value="✅ Deal">✅ Deal</option>
+          <option value="❌ Cancel">❌ Cancel</option>
+        </select>
+        <select id="qJenis">
+          <option value="">Semua Jenis</option>
+          <option>Wedding</option><option>Corporate</option><option>Others</option>
+        </select>
+      </div>
+      <div class="tablewrap">
+        <table id="listTable">
+          <thead><tr><th>Tanggal</th><th>Customer</th><th>Produk</th><th>Jenis</th><th>Tgl Acara</th><th>Referral</th><th>Est. Nominal</th><th>Via</th><th>Status</th><th>PIC</th><th>Aksi</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <div class="note">🔥 Baris merah = Quotation yang sudah &gt; 7 hari belum closing — perlu di-follow up.</div>
+    </div>
+
+    <!-- View: Customer database -->
+    <div class="view" id="viewCustomer">
+      <div class="filterbar">
+        <input id="cSearch" placeholder="🔍 Cari customer / kontak…" />
+      </div>
+      <div class="tablewrap">
+        <table id="custTable">
+          <thead><tr><th>Customer</th><th>Kontak</th><th>Via</th><th>Jenis</th><th>Inquiry</th><th>Deal</th><th>Total Deal</th><th>Status Terakhir</th><th>Acara Terakhir</th><th>PIC</th><th>Terakhir</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <div class="note">Database otomatis dari semua inquiry brand ini (digabung per nama customer). Sumber: tab "👥 Customer Database" di Google Sheets.</div>
     </div>
   </div>
 
@@ -190,10 +256,19 @@ tbody tr:hover{background:var(--cream)}
       <div class="field"><label>Produk Inquiry</label><input id="eProduct" /></div>
     </div>
     <div class="row2">
+      <div class="field"><label>Jenis Inquiry</label>
+        <select id="eJenis">
+          <option value="">— Pilih —</option>
+          <option>Wedding</option><option>Corporate</option><option>Others</option>
+        </select>
+      </div>
+      <div class="field"><label>Tanggal Acara</label><input type="date" id="eTanggal" /></div>
+    </div>
+    <div class="row2">
       <div class="field"><label>Est. Nominal (Rp)</label><input type="number" id="eNominal" min="0" /></div>
       <div class="field"><label>Status</label>
         <select id="eStatus">
-          <option value="⏳ Wait for Confirmation">⏳ Wait for Confirmation</option>
+          <option value="📝 Quotation">📝 Quotation</option>
           <option value="✅ Deal">✅ Deal</option>
           <option value="❌ Cancel">❌ Cancel</option>
         </select>
@@ -209,9 +284,10 @@ tbody tr:hover{background:var(--cream)}
       <div class="field"><label>Username IG / No HP</label><input id="eContact" /></div>
     </div>
     <div class="row2">
+      <div class="field"><label>Referral (WO / EO / Nama)</label><input id="eReferral" /></div>
       <div class="field"><label>Sales PIC</label><input id="ePic" /></div>
-      <div class="field"><label>Notes</label><input id="eNotes" /></div>
     </div>
+    <div class="field"><label>Notes</label><input id="eNotes" /></div>
     <div class="row2" style="margin-top:4px">
       <button class="btn btn-gold" id="saveEditBtn">💾 Simpan Perubahan</button>
       <button class="iconbtn" id="cancelEditBtn" style="height:42px">Batal</button>
@@ -224,11 +300,13 @@ tbody tr:hover{background:var(--cream)}
 <script>
 /* ====== KONFIG ====== */
 const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyxK1M5xtaXSUO2_J5wbVPsc5QYsEIuIxrFCpFttce-KvSuTV7rkb9NSRxye5cIS2QX/exec';
+const AGING_DAYS = 7; // Quotation lebih lama dari ini = perlu follow up
 
 let auth = { brand: '', password: '' };
 
 const $ = id => document.getElementById(id);
 const fmtRp = n => 'Rp ' + (Number(n)||0).toLocaleString('id-ID');
+const esc = s => String(s==null?'':s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 
 function toast(msg, isErr){
   const t = $('toast'); t.textContent = msg;
@@ -277,37 +355,131 @@ $('logoutBtn').onclick = ()=>{
   $('loginPw').value = '';
 };
 
-/* ====== RENDER ====== */
+/* ====== RENDER SUMMARY ====== */
 function renderSummary(s){
   s = s || {};
   $('sTotal').textContent   = s.total || 0;
   $('sDeal').textContent    = s.deal || 0;
   $('sWait').textContent    = s.wait || 0;
   $('sCancel').textContent  = s.cancel || 0;
+  $('sConv').textContent    = (s.convRate != null ? s.convRate : (s.total ? Math.round((s.deal/s.total)*100) : 0)) + '%';
   $('sNominal').textContent = fmtRp(s.nominalDeal || 0);
 }
 function statusPill(st){
   if(st.indexOf('Deal')>=0)   return '<span class="pill deal">✅ Deal</span>';
   if(st.indexOf('Cancel')>=0) return '<span class="pill cancel">❌ Cancel</span>';
-  return '<span class="pill wait">⏳ Wait</span>';
+  return '<span class="pill wait">📝 Quotation</span>';
 }
+function jenisTag(j){
+  if(!j) return '<span class="muted-empty">—</span>';
+  const k = j.toLowerCase();
+  const cls = k.indexOf('wedding')>=0?'wedding':k.indexOf('corp')>=0?'corporate':'others';
+  return '<span class="tag '+cls+'">'+esc(j)+'</span>';
+}
+// Hitung umur (hari) dari timestamp "yyyy-MM-dd HH:mm"
+function ageDays(ts){
+  if(!ts) return 0;
+  const d = new Date(String(ts).replace(' ', 'T'));
+  if(isNaN(d.getTime())) return 0;
+  return Math.floor((Date.now() - d.getTime()) / 86400000);
+}
+
+/* ====== INQUIRY LIST + FILTER ====== */
 let currentList = [];
-function renderList(list){
-  currentList = list || [];
+function renderList(list){ currentList = list || []; applyFilters(); }
+
+function applyFilters(){
+  const q  = $('qSearch').value.trim().toLowerCase();
+  const st = $('qStatus').value;
+  const jn = $('qJenis').value;
+  const rows = currentList.filter(x => {
+    if(st){
+      const key = st.indexOf('Deal')>=0?'Deal':st.indexOf('Cancel')>=0?'Cancel':'Quotation';
+      const sx = x.status||'';
+      const xKey = sx.indexOf('Deal')>=0?'Deal':sx.indexOf('Cancel')>=0?'Cancel':'Quotation';
+      if(xKey !== key) return false;
+    }
+    if(jn && (x.jenisInquiry||'') !== jn) return false;
+    if(q){
+      const hay = ((x.customer||'')+' '+(x.product||'')+' '+(x.referral||'')+' '+(x.salesPic||'')).toLowerCase();
+      if(hay.indexOf(q)<0) return false;
+    }
+    return true;
+  });
+  drawList(rows);
+}
+
+function drawList(rows){
   const tb = $('listTable').querySelector('tbody'); tb.innerHTML='';
-  if(!currentList.length){
-    tb.innerHTML = '<tr><td colspan="8" style="color:var(--text3)">Belum ada inquiry.</td></tr>'; return;
+  if(!rows.length){
+    tb.innerHTML = '<tr><td colspan="11" class="muted-empty">Belum ada inquiry yang cocok.</td></tr>'; return;
   }
-  currentList.forEach((x, i)=>{
+  rows.forEach((x)=>{
+    const i = currentList.indexOf(x);
+    const isQuote = (x.status||'').indexOf('Deal')<0 && (x.status||'').indexOf('Cancel')<0;
+    const age = ageDays(x.timestamp);
+    const aging = isQuote && age > AGING_DAYS;
+    const ageBadge = aging ? '<span class="age">🔥 '+age+'h</span>' : '';
     const tr = document.createElement('tr');
-    tr.innerHTML = `<td>${x.timestamp||'—'}</td><td>${x.customer||'—'}</td><td>${x.product||'—'}</td>
-      <td class="num">${fmtRp(x.nominal)}</td><td>${x.contactVia||'—'}</td>
-      <td>${statusPill(x.status||'')}</td><td>${x.salesPic||'—'}</td>
+    if(aging) tr.className = 'aging';
+    tr.innerHTML = `<td>${esc(x.timestamp)||'—'}</td><td>${esc(x.customer)||'—'}</td><td>${esc(x.product)||'—'}</td>
+      <td>${jenisTag(x.jenisInquiry)}</td><td>${esc(x.tanggalAcara)||'—'}</td><td>${esc(x.referral)||'—'}</td>
+      <td class="num">${fmtRp(x.nominal)}</td><td>${esc(x.contactVia)||'—'}</td>
+      <td>${statusPill(x.status||'')}${ageBadge}</td><td>${esc(x.salesPic)||'—'}</td>
       <td><button class="iconbtn" data-edit="${i}">✎ Edit</button></td>`;
     tb.appendChild(tr);
   });
   tb.querySelectorAll('[data-edit]').forEach(b=> b.onclick = ()=> openEdit(+b.dataset.edit));
 }
+$('qSearch').oninput = applyFilters;
+$('qStatus').onchange = applyFilters;
+$('qJenis').onchange = applyFilters;
+
+/* ====== TABS ====== */
+$('tabInquiry').onclick = ()=> switchTab('inquiry');
+$('tabCustomer').onclick = ()=> switchTab('customer');
+function switchTab(which){
+  const isCust = which==='customer';
+  $('tabInquiry').classList.toggle('active', !isCust);
+  $('tabCustomer').classList.toggle('active', isCust);
+  $('viewInquiry').classList.toggle('show', !isCust);
+  $('viewCustomer').classList.toggle('show', isCust);
+  if(isCust) loadCustomers();
+}
+
+/* ====== CUSTOMER DATABASE ====== */
+let customers = [];
+async function loadCustomers(){
+  const tb = $('custTable').querySelector('tbody');
+  tb.innerHTML = '<tr><td colspan="11" class="muted-empty">Memuat…</td></tr>';
+  try{
+    const url = APPS_SCRIPT_URL + '?action=getCustomers&brand=' + encodeURIComponent(auth.brand) + '&password=' + encodeURIComponent(auth.password);
+    const res = await fetch(url);
+    const data = await res.json();
+    if(!data.success){ tb.innerHTML = '<tr><td colspan="11" class="muted-empty">'+esc(data.error||'Gagal memuat')+'</td></tr>'; return; }
+    customers = data.customers || [];
+    drawCustomers();
+  }catch(e){
+    tb.innerHTML = '<tr><td colspan="11" class="muted-empty">Gagal terhubung ke server.</td></tr>';
+  }
+}
+function drawCustomers(){
+  const q = $('cSearch').value.trim().toLowerCase();
+  const tb = $('custTable').querySelector('tbody'); tb.innerHTML='';
+  const rows = customers.filter(c => !q || ((c.customer||'')+' '+(c.contact||'')).toLowerCase().indexOf(q)>=0);
+  if(!rows.length){
+    tb.innerHTML = '<tr><td colspan="11" class="muted-empty">Belum ada customer.</td></tr>'; return;
+  }
+  rows.forEach(c=>{
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${esc(c.customer)||'—'}</td><td>${esc(c.contact)||'—'}</td><td>${esc(c.contactVia)||'—'}</td>
+      <td>${jenisTag(c.jenisInquiry)}</td><td class="num">${c.count||0}</td><td class="num">${c.dealCount||0}</td>
+      <td class="num">${fmtRp(c.totalDeal)}</td><td>${statusPill(c.lastStatus||'')}</td>
+      <td>${esc(c.lastEvent)||'—'}</td><td>${esc(c.salesPic)||'—'}</td><td>${esc(c.lastSeen)||'—'}</td>`;
+    tb.appendChild(tr);
+  });
+}
+$('cSearch').oninput = drawCustomers;
 
 /* ====== EDIT ====== */
 function openEdit(i){
@@ -315,12 +487,15 @@ function openEdit(i){
   $('eRow').value      = x.row;
   $('eCustomer').value = x.customer || '';
   $('eProduct').value  = x.product || '';
+  $('eJenis').value    = x.jenisInquiry || '';
+  $('eTanggal').value  = x.tanggalAcara || '';
   $('eNominal').value  = x.nominal || '';
   $('eStatus').value   = x.status && x.status.indexOf('Deal')>=0 ? '✅ Deal'
                        : x.status && x.status.indexOf('Cancel')>=0 ? '❌ Cancel'
-                       : '⏳ Wait for Confirmation';
+                       : '📝 Quotation';
   $('eContactVia').value = x.contactVia || 'Instagram';
   $('eContact').value  = x.contact || '';
+  $('eReferral').value = x.referral || '';
   $('ePic').value      = x.salesPic || '';
   $('eNotes').value    = x.notes || '';
   $('ovEdit').classList.add('show');
@@ -338,10 +513,13 @@ $('saveEditBtn').onclick = async ()=>{
     row: $('eRow').value,
     customerName: customer,
     product: $('eProduct').value.trim(),
+    jenisInquiry: $('eJenis').value,
+    tanggalAcara: $('eTanggal').value,
     nominal: parseFloat($('eNominal').value) || 0,
     status: $('eStatus').value,
     contactVia: $('eContactVia').value,
     contactDetail: $('eContact').value.trim(),
+    referral: $('eReferral').value.trim(),
     salesPic: $('ePic').value.trim(),
     notes: $('eNotes').value.trim(),
   };
@@ -377,10 +555,13 @@ async function submitInquiry(){
     password: auth.password,
     customerName: customer,
     product: $('fProduct').value.trim(),
+    jenisInquiry: $('fJenis').value,
+    tanggalAcara: $('fTanggal').value,
     nominal: parseFloat($('fNominal').value) || 0,
     status: $('fStatus').value,
     contactVia: $('fContactVia').value,
     contactDetail: $('fContact').value.trim(),
+    referral: $('fReferral').value.trim(),
     salesPic: $('fPic').value.trim(),
     notes: $('fNotes').value.trim(),
   };
@@ -397,8 +578,8 @@ async function submitInquiry(){
 
     toast('✅ Inquiry tersimpan!');
     // Reset form
-    ['fCustomer','fProduct','fNominal','fContact','fPic','fNotes'].forEach(id=> $(id).value='');
-    $('fStatus').selectedIndex = 0; $('fContactVia').selectedIndex = 0;
+    ['fCustomer','fProduct','fTanggal','fNominal','fContact','fReferral','fPic','fNotes'].forEach(id=> $(id).value='');
+    $('fStatus').selectedIndex = 0; $('fContactVia').selectedIndex = 0; $('fJenis').selectedIndex = 0;
     await refresh();
   }catch(e){
     toast('Gagal terhubung ke server.', true);
@@ -413,6 +594,8 @@ async function refresh(){
     const res = await fetch(url);
     const data = await res.json();
     if(data.success){ renderSummary(data.summary); renderList(data.inquiries); }
+    // Kalau tab customer sedang aktif, refresh juga
+    if($('viewCustomer').classList.contains('show')) loadCustomers();
   }catch(e){ /* diam */ }
 }
 </script>
