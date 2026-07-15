@@ -168,6 +168,7 @@ tbody tr.aging:hover{background:#f3d5d5}
       <button class="ntab" data-pane="agenda">📌 Agenda</button>
       <button class="ntab" data-pane="finance">💰 Finance</button>
       <button class="ntab" data-pane="marketing">📊 Marketing</button>
+      <button class="ntab" data-pane="laporan">📄 Laporan</button>
     </div>
 
     <div id="pane-inquiry" class="pane show">
@@ -296,6 +297,7 @@ tbody tr.aging:hover{background:#f3d5d5}
     <div id="pane-agenda"    class="pane"></div>
     <div id="pane-finance"   class="pane"></div>
     <div id="pane-marketing" class="pane"></div>
+    <div id="pane-laporan"   class="pane"></div>
   </div>
 
 </div>
@@ -790,6 +792,7 @@ function switchPane(pane){
   if(pane==='agenda'    && !agendaLoaded) loadBrandAgenda();
   if(pane==='marketing' && !mktLoaded)    loadBrandMarketing();
   if(pane==='finance')  openFinancePane();
+  if(pane==='laporan')  loadBrandLaporan();
 }
 document.querySelectorAll('.ntab').forEach(b=> b.onclick=()=>switchPane(b.dataset.pane));
 
@@ -937,6 +940,131 @@ function renderBrandMarketing(){
     </div>
     <div class="section-title">📑 Detail per Laporan</div>
     <div class="tablewrap"><table><thead><tr><th>Periode</th><th>Posts</th><th>Reach</th><th>Views</th><th>Likes</th><th>Saves</th><th>Follows</th><th>Avg ER</th><th>Story ER</th></tr></thead><tbody>${tb}</tbody></table></div>`;
+}
+
+/* ---- LAPORAN BULANAN (brand bikin sendiri) ---- */
+let lapMonth = AG_MON[new Date().getMonth()], lapBudget=null, lapNotesBrand=null;
+async function loadBrandLaporan(){
+  const box=$('pane-laporan'); box.innerHTML='<div class="note" style="padding:24px;text-align:center">⏳ Memuat laporan…</div>';
+  const q='&brand='+encodeURIComponent(auth.brand)+'&password='+encodeURIComponent(auth.password);
+  const yr=new Date().getFullYear();
+  try{
+    const [budget, notes]=await Promise.all([
+      fetch(APPS_SCRIPT_URL+'?action=getBrandBudget'+q).then(r=>r.json()),
+      fetch(APPS_SCRIPT_URL+'?action=getBrandReportNotes&month='+encodeURIComponent(lapMonth)+'&year='+yr+q).then(r=>r.json())
+    ]);
+    if(!budget.success){ box.innerHTML='<div class="err show">'+esc(budget.error||'Gagal memuat')+'</div>'; return; }
+    lapBudget=budget;
+    lapNotesBrand=notes.success?notes.notes:{wins:'',losses:'',opportunity:'',problem:''};
+    if(!brandAgenda){ const d=await fetch(APPS_SCRIPT_URL+'?action=getBrandAgenda'+q).then(r=>r.json()); if(d.success){brandAgenda=d;agendaLoaded=true;} }
+    if(!brandMkt){ const d=await fetch(APPS_SCRIPT_URL+'?action=getBrandMarketing'+q).then(r=>r.json()); if(d.success){brandMkt=d;mktLoaded=true;} }
+    renderBrandLaporan();
+  }catch(e){ box.innerHTML='<div class="err show">Gagal terhubung ke server.</div>'; }
+}
+function lapAssemble(){
+  const yr=new Date().getFullYear(), mi=AG_MON.indexOf(lapMonth), prevM=AG_MON[(mi+11)%12], nextM=AG_MON[(mi+1)%12];
+  const bRows=(lapBudget&&lapBudget.rows)||[];
+  const bud=m=>{ const r=bRows.find(x=>x.month===m)||{est:0,proj:0,act:0}; return {est:r.est||0,proj:r.proj||0,act:r.act||0}; };
+  const bCur=bud(lapMonth), bNext=bud(nextM);
+  const mk=(brandMkt&&brandMkt.rows)||[], sumK=(a,k)=>a.reduce((s,x)=>s+(x[k]||0),0), avgK=(a,k)=>a.length?a.reduce((s,x)=>s+(x[k]||0),0)/a.length:0;
+  const mc=mk.filter(r=>r.month===lapMonth), mp=mk.filter(r=>r.month===prevM);
+  const so={reach:sumK(mc,'reach'),views:sumK(mc,'views'),follows:sumK(mc,'follows'),er:avgK(mc,'avgER')};
+  const sp={reach:sumK(mp,'reach'),views:sumK(mp,'views'),follows:sumK(mp,'follows'),er:avgK(mp,'avgER')};
+  const ag=((brandAgenda&&brandAgenda.detail)||[]).filter(x=>x.bulan===lapMonth);
+  const agDone=ag.filter(x=>agStatusLabel(x.status)==='Done').length, agProg=ag.filter(x=>agStatusLabel(x.status)==='In Progress').length;
+  const inq=currentList||[];
+  const inqQ=inq.filter(x=>(x.status||'').indexOf('Deal')<0&&(x.status||'').indexOf('Cancel')<0);
+  const inqW=inq.filter(x=>(x.status||'').indexOf('Deal')>=0);
+  const inqL=inq.filter(x=>(x.status||'').indexOf('Cancel')>=0);
+  return {yr,mi,prevM,nextM,bCur,bNext,so,sp,ag,agDone,agProg,inq,inqQ,inqW,inqL,sumK};
+}
+function renderBrandLaporan(){
+  const box=$('pane-laporan'), R=lapAssemble(), N=lapNotesBrand||{};
+  const opt=AG_MON.map(m=>`<option ${m===lapMonth?'selected':''}>${m}</option>`).join('');
+  const dlt=(c,p,pct)=>{const d=c-p,up=d>=0;const v=pct?((d>=0?'+':'')+d.toFixed(2)+'pp'):((d>=0?'+':'')+fmtNum(Math.round(d)));return `<span style="color:${up?'var(--green4)':'var(--red)'};font-size:12px">${up?'▲':'▼'} ${v} <span class="muted">vs ${R.prevM}</span></span>`;};
+  const soRow=(l,c,p,pct)=>`<tr><td>${l}</td><td class="num">${pct?p.toFixed(2)+'%':fmtNum(p)}</td><td class="num">${pct?c.toFixed(2)+'%':fmtNum(c)}</td><td>${dlt(c,p,pct)}</td></tr>`;
+  const ta=(id,label,val,hint)=>`<div style="margin-bottom:12px"><label style="font-size:12px;font-weight:700;color:var(--text2);display:block;margin-bottom:3px">${label}</label>
+    <div class="note" style="margin:0 0 4px">${hint}</div>
+    <textarea id="${id}" rows="3" style="width:100%;font-family:inherit;font-size:13px;padding:9px 11px;border:1.5px solid var(--cream2);border-radius:9px;background:var(--cream);color:var(--text);outline:none;resize:vertical">${esc(val||'')}</textarea></div>`;
+  box.innerHTML=`
+    <div class="toolbar"><span class="lbl">Bulan</span><select id="lapMonthSel">${opt}</select>
+      <span style="flex:1"></span>
+      <button id="lapPdf" class="tab">🖨️ PDF</button><button id="lapExcel" class="tab">⬇ Excel</button></div>
+    <div id="lap-report">
+    <div class="section-title">📄 Laporan Bulanan — ${esc(auth.brand)} · ${lapMonth} ${R.yr}</div>
+
+    <div class="section-title">💰 Penggunaan Anggaran</div>
+    <div class="kpis">
+      <div class="kpi"><h3>Budget Estimasi</h3><div class="v num" style="font-size:19px">${fmtRp(R.bCur.est)}</div></div>
+      <div class="kpi wait"><h3>Proyeksi</h3><div class="v num" style="font-size:19px">${fmtRp(R.bCur.proj)}</div></div>
+      <div class="kpi"><h3>Aktual</h3><div class="v num" style="font-size:19px">${fmtRp(R.bCur.act)}</div></div>
+      <div class="kpi"><h3>Proyeksi ${R.nextM}</h3><div class="v num" style="font-size:19px">${fmtRp(R.bNext.proj)}</div></div>
+    </div>
+
+    <div class="section-title">📊 Social Media — ${lapMonth} vs ${R.prevM}</div>
+    <div class="tablewrap"><table><thead><tr><th>Metrik</th><th>${R.prevM}</th><th>${lapMonth}</th><th>Perubahan</th></tr></thead><tbody>
+      ${soRow('Reach',R.so.reach,R.sp.reach,false)}${soRow('Views',R.so.views,R.sp.views,false)}${soRow('Follows',R.so.follows,R.sp.follows,false)}${soRow('Avg ER',R.so.er,R.sp.er,true)}
+    </tbody></table></div>
+
+    <div class="section-title">📌 Agenda Monitoring — ${lapMonth}</div>
+    <div class="kpis">
+      <div class="kpi"><h3>Total Agenda</h3><div class="v num">${R.ag.length}</div></div>
+      <div class="kpi deal"><h3>✓ Done</h3><div class="v num">${R.agDone}</div></div>
+      <div class="kpi wait"><h3>◐ In Progress</h3><div class="v num">${R.agProg}</div></div>
+    </div>
+
+    <div class="section-title">📋 Progres Inquiry</div>
+    <div class="kpis">
+      <div class="kpi wait"><h3>Berjalan (Quotation)</h3><div class="v num">${R.inqQ.length}</div></div>
+      <div class="kpi deal"><h3>Masuk (Deal)</h3><div class="v num">${R.inqW.length}</div></div>
+      <div class="kpi cancel"><h3>Gagal (Cancel)</h3><div class="v num">${R.inqL.length}</div></div>
+    </div>
+
+    <div class="section-title">📝 Analisa Kualitatif <span class="muted" style="font-size:12px;font-weight:400">(diisi brand)</span></div>
+    <div class="card">
+      ${ta('lWins','🏆 Wins bulan lalu',N.wins,`Data: Reach ${lapMonth} ${fmtNum(R.so.reach)} vs ${R.prevM} ${fmtNum(R.sp.reach)}; Deal ${R.inqW.length}.`)}
+      ${ta('lLosses','⚠️ Losses / kendala',N.losses,`Data: Cancel ${R.inqL.length}; Agenda belum Done ${R.ag.length-R.agDone}.`)}
+      ${ta('lOpp','💡 Opportunity (inquiry/non)',N.opportunity,`Data: ${R.inqQ.length} inquiry masih berjalan (potensi closing) senilai ${fmtRp(R.sumK(R.inqQ,'nominal'))}.`)}
+      ${ta('lProb','🔮 Calon problem bulan depan',N.problem,`Data: Proyeksi ${R.nextM} ${fmtRp(R.bNext.proj)}.`)}
+      <button id="lapSave" class="btn btn-gold">💾 Simpan Laporan</button>
+    </div>
+    </div>`;
+  $('lapMonthSel').onchange=e=>{lapMonth=e.target.value;loadBrandLaporan();};
+  $('lapSave').onclick=saveBrandLaporan;
+  $('lapExcel').onclick=exportBrandLaporanExcel;
+  $('lapPdf').onclick=printBrandLaporan;
+}
+async function saveBrandLaporan(){
+  const btn=$('lapSave'); btn.disabled=true; btn.textContent='Menyimpan…';
+  const payload={type:'brandReportNotes',brand:auth.brand,password:auth.password,month:lapMonth,year:new Date().getFullYear(),
+    wins:$('lWins').value,losses:$('lLosses').value,opportunity:$('lOpp').value,problem:$('lProb').value};
+  try{
+    const d=await (await fetch(APPS_SCRIPT_URL,{method:'POST',body:JSON.stringify(payload)})).json();
+    if(d.success){ toast('✅ Laporan tersimpan! BOD bisa lihat di Dashboard.'); lapNotesBrand={wins:payload.wins,losses:payload.losses,opportunity:payload.opportunity,problem:payload.problem}; }
+    else toast(d.error||'Gagal menyimpan.',true);
+  }catch(e){ toast('Gagal terhubung ke server.',true); }
+  finally{ btn.disabled=false; btn.textContent='💾 Simpan Laporan'; }
+}
+function exportBrandLaporanExcel(){
+  const R=lapAssemble();
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet([
+    {Bagian:'Brand',Nilai:auth.brand},{Bagian:'Bulan',Nilai:lapMonth+' '+R.yr},
+    {Bagian:'Budget Estimasi',Nilai:R.bCur.est},{Bagian:'Proyeksi',Nilai:R.bCur.proj},{Bagian:'Aktual',Nilai:R.bCur.act},
+    {Bagian:'Reach '+lapMonth,Nilai:R.so.reach},{Bagian:'Reach '+R.prevM,Nilai:R.sp.reach},{Bagian:'Avg ER '+lapMonth,Nilai:R.so.er.toFixed(2)+'%'},
+    {Bagian:'Agenda Total',Nilai:R.ag.length},{Bagian:'Agenda Done',Nilai:R.agDone},
+    {Bagian:'Inquiry Berjalan',Nilai:R.inqQ.length},{Bagian:'Inquiry Deal',Nilai:R.inqW.length},{Bagian:'Inquiry Cancel',Nilai:R.inqL.length},
+    {Bagian:'Wins',Nilai:$('lWins').value},{Bagian:'Losses',Nilai:$('lLosses').value},{Bagian:'Opportunity',Nilai:$('lOpp').value},{Bagian:'Calon Problem',Nilai:$('lProb').value},
+  ]),'Laporan');
+  XLSX.writeFile(wb,`Laporan_${auth.brand}_${lapMonth}_${R.yr}.xlsx`);
+}
+function printBrandLaporan(){
+  const html=$('lap-report').innerHTML;
+  const w=window.open('','_blank');
+  w.document.write(`<html><head><title>Laporan ${esc(auth.brand)} ${lapMonth}</title>
+    <style>body{font-family:Arial,sans-serif;padding:24px;color:#222}table{width:100%;border-collapse:collapse;margin:8px 0}th,td{border:1px solid #ccc;padding:6px 8px;text-align:left;font-size:12px}.section-title{font-size:15px;font-weight:700;margin:16px 0 6px;color:#233a2c}.kpis{display:flex;gap:10px;flex-wrap:wrap;margin:8px 0}.kpi{border:1px solid #ccc;border-radius:8px;padding:8px 12px;min-width:120px}.kpi h3{font-size:10px;color:#666;margin:0}.kpi .v{font-size:18px;font-weight:700}.note{font-size:11px;color:#888;margin:2px 0}textarea{width:100%;border:1px solid #ccc;border-radius:6px;padding:8px;font-size:12px;min-height:50px}.muted{color:#999}.tab,.toolbar{display:none}</style>
+    </head><body>${html}</body></html>`);
+  w.document.close(); setTimeout(()=>w.print(),300);
 }
 </script>
 </body>
