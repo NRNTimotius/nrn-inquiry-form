@@ -120,6 +120,11 @@ tbody tr.aging:hover{background:#f3d5d5}
 .ins-col code{font-family:'DM Mono',monospace;font-size:11px;background:rgba(0,0,0,.06);padding:1px 4px;border-radius:3px}
 .ins-empty{font-size:12px;color:var(--text3)}
 .ins-foot{margin-top:11px;font-size:11.5px;color:var(--text3);line-height:1.5}
+/* Laporan */
+.lap-na{font-size:12px;color:var(--text3);font-family:'DM Sans',sans-serif;font-weight:400;font-style:italic}
+.lap-sub{font-size:11px;color:var(--text3);margin-top:3px;font-family:'DM Mono',monospace}
+tr.lap-od td{background:#fdf0f0}
+tr.lap-soon td{background:#fffaeb}
 .tag{font-size:10px;font-weight:700;padding:2px 8px;border-radius:6px;display:inline-block;background:var(--cream2);color:var(--text2)}
 .tag.wedding{background:#fbe4ec;color:#a8326a}
 .tag.corporate{background:var(--blue-bg);color:var(--blue)}
@@ -688,6 +693,141 @@ function drawCustomers(){
 $('cSearch').oninput = drawCustomers;
 ['cStatus','cVia','cJenis','cPic','cSort'].forEach(id=>{ $(id).onchange = drawCustomers; });
 
+/* ══════════ CETAK LAPORAN (dokumen, bukan jiplakan layar) ══════════
+   Blok identik di nrn-inquiry-form & nrn-dashboard — ubah di dua-duanya.
+   Poin penting: textarea TIDAK tercetak isinya oleh browser, jadi di sini
+   diubah jadi teks biasa dulu. Warna kotak insight dipaksa ikut tercetak. */
+const LAP_PRINT_CSS = `
+@page { size:A4; margin:16mm 14mm 18mm; }
+*{box-sizing:border-box}
+body{font-family:'Helvetica Neue',Arial,sans-serif;color:#241c12;font-size:10.5pt;line-height:1.5;margin:0;
+     -webkit-print-color-adjust:exact;print-color-adjust:exact}
+.doc-head{border-bottom:2.5pt solid #233a2c;padding-bottom:9pt;margin-bottom:14pt;display:flex;
+          justify-content:space-between;align-items:flex-end;gap:12pt}
+.doc-org{font-size:8pt;letter-spacing:.18em;text-transform:uppercase;color:#c8a96e;font-weight:700;margin-bottom:3pt}
+.doc-title{font-size:17pt;font-weight:700;color:#233a2c;line-height:1.15}
+.doc-sub{font-size:9pt;color:#4f4534;margin-top:3pt}
+.doc-meta{font-size:8pt;color:#8a8170;text-align:right;line-height:1.5;white-space:nowrap}
+h2.section-title{font-size:11.5pt;font-weight:700;color:#233a2c;margin:16pt 0 5pt;
+                 border-left:3pt solid #c8a96e;padding-left:6pt;page-break-after:avoid}
+table{width:100%;border-collapse:collapse;margin:5pt 0 3pt;page-break-inside:auto}
+thead{display:table-header-group}
+tr{page-break-inside:avoid;page-break-after:auto}
+th{background:#233a2c;color:#fff;font-size:8pt;font-weight:700;text-align:left;padding:4pt 6pt;
+   text-transform:uppercase;letter-spacing:.04em}
+td{border-bottom:.5pt solid #ddd6c8;padding:4pt 6pt;font-size:8.5pt;vertical-align:top}
+tbody tr:nth-child(even) td{background:#faf7f1}
+tr.lap-od td{background:#fdf0f0 !important}
+tr.lap-soon td{background:#fffaeb !important}
+td.num,td.r,th.r{text-align:right;font-variant-numeric:tabular-nums}
+.kpis,.brandgrid{display:flex;flex-wrap:wrap;gap:6pt;margin:6pt 0}
+.kpi,.bcard{border:.5pt solid #ddd6c8;border-radius:4pt;padding:5pt 8pt;min-width:88pt;background:#faf7f1}
+.kpi h3,.bcard h3{font-size:7pt;color:#8a8170;margin:0 0 2pt;text-transform:uppercase;letter-spacing:.04em;font-weight:700}
+.kpi .v,.bcard .big{font-size:13pt;font-weight:700;color:#241c12}
+.biglbl,.lap-sub{font-size:7pt;color:#8a8170;margin-top:1pt}
+.lap-na{font-size:8.5pt;color:#8a8170;font-style:italic;font-weight:400}
+.note{font-size:7.5pt;color:#6b6354;margin:3pt 0 0;line-height:1.45}
+.muted{color:#8a8170}
+.pill{font-size:7pt;font-weight:700;padding:1pt 4pt;border-radius:6pt;border:.5pt solid #ccc;white-space:nowrap}
+.pill.deal,.pill.done{background:#e6f1ea;border-color:#bfe0cc;color:#2d6a4f}
+.pill.wait,.pill.prog{background:#fff0cc;border-color:#e8d49a;color:#7f5000}
+.pill.cancel{background:#f7e3e3;border-color:#e8b9b9;color:#9b2226}
+.pill.sampling{background:#ece4f7;border-color:#cbb8e6;color:#5b3a8e}
+.tag{font-size:7pt;padding:1pt 4pt;border-radius:4pt;background:#eee}
+/* Kotak insight */
+.ins-box{border:.5pt solid #ddd6c8;border-radius:5pt;padding:8pt;background:#fff;page-break-inside:avoid}
+.ins-head{font-size:9pt;font-weight:700;color:#4f4534;margin-bottom:6pt}
+.ins-grid{display:flex;gap:6pt;align-items:stretch}
+.ins-col{flex:1;border:.5pt solid #ddd6c8;border-radius:4pt;padding:6pt;background:#f6f2ea}
+.ins-col.good{background:#e6f1ea;border-color:#bfe0cc}
+.ins-col.warn{background:#f5ecd8;border-color:#e8d49a}
+.ins-col.act{background:#f7e3e3;border-color:#e8b9b9}
+.ins-col h4{font-size:8pt;margin:0 0 4pt}
+.ins-col ul{margin:0;padding-left:9pt}
+.ins-col li{font-size:7.5pt;line-height:1.45;margin-bottom:3pt}
+.ins-tag{font-size:6pt;font-weight:700;text-transform:uppercase;padding:0 3pt;border-radius:2pt;
+         background:rgba(0,0,0,.08);margin-right:2pt}
+.ins-empty{font-size:7.5pt;color:#8a8170}
+.ins-foot{font-size:7pt;color:#8a8170;margin-top:5pt;line-height:1.4}
+.ins-n{opacity:.55;font-weight:400}
+code{font-family:'Courier New',monospace;font-size:7.5pt;background:#efeade;padding:0 2pt;border-radius:2pt}
+/* Analisa kualitatif → teks, bukan form */
+.qa-item{margin-bottom:7pt;page-break-inside:avoid}
+.qa-label{font-size:8.5pt;font-weight:700;color:#233a2c;margin-bottom:2pt}
+.qa-text{border:.5pt solid #ddd6c8;border-left:2pt solid #c8a96e;border-radius:3pt;padding:5pt 7pt;
+         background:#faf7f1;font-size:8.5pt;min-height:22pt;white-space:pre-wrap;line-height:1.5}
+.qa-text.kosong{color:#a9a294;font-style:italic}
+/* Tanda tangan */
+.sign{margin-top:20pt;display:flex;gap:24pt;page-break-inside:avoid}
+.sign-box{flex:1;text-align:center}
+.sign-role{font-size:8pt;color:#8a8170;margin-bottom:34pt}
+.sign-line{border-top:.5pt solid #8a8170;padding-top:3pt;font-size:8pt;color:#4f4534}
+.doc-foot{margin-top:14pt;border-top:.5pt solid #ddd6c8;padding-top:5pt;font-size:6.5pt;color:#a9a294;text-align:center}
+/* Yang tidak ikut cetak */
+.toolbar,.tab,button,select,.iconbtn,.calbar{display:none !important}
+`;
+
+// Ubah #lap-report jadi dokumen siap cetak.
+// srcId = id container di layar; opts = {brand, periode, judul}
+function buildLaporanPrintDoc(srcId, opts){
+  const src = document.getElementById(srcId);
+  if(!src) return null;
+  const root = src.cloneNode(true);
+
+  // 1) textarea → teks biasa (kalau tidak, isinya hilang saat dicetak)
+  const live = src.querySelectorAll('textarea');
+  root.querySelectorAll('textarea').forEach((ta,i)=>{
+    const val = (live[i] ? live[i].value : ta.value || '').trim();
+    const wrap = ta.closest('div');
+    const lbl = wrap ? wrap.querySelector('label') : null;
+    const d = document.createElement('div');
+    d.className = 'qa-item';
+    d.innerHTML = `<div class="qa-label">${lbl?lbl.innerHTML:''}</div>
+      <div class="qa-text${val?'':' kosong'}">${val ? val.replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])) : '— belum diisi —'}</div>`;
+    // buang hint kecil di atas textarea supaya tidak ikut
+    if(wrap && wrap.parentNode){ wrap.parentNode.replaceChild(d, wrap); }
+    else if(ta.parentNode){ ta.parentNode.replaceChild(d, ta); }
+  });
+
+  // 2) buang kontrol yang tidak relevan di kertas
+  root.querySelectorAll('.toolbar,button,select,.iconbtn').forEach(el=>el.remove());
+
+  // 3) section-title div → h2 supaya tidak putus di ujung halaman
+  root.querySelectorAll('.section-title').forEach(el=>{
+    const h=document.createElement('h2'); h.className='section-title'; h.innerHTML=el.innerHTML;
+    el.parentNode.replaceChild(h,el);
+  });
+
+  const now = new Date();
+  const tgl = now.toLocaleDateString('id-ID',{day:'numeric',month:'long',year:'numeric'});
+  const jam = now.toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit'});
+  return `<!doctype html><html lang="id"><head><meta charset="utf-8">
+    <title>${opts.judul}</title><style>${LAP_PRINT_CSS}</style></head><body>
+    <div class="doc-head">
+      <div>
+        <div class="doc-org">PT. NRN Holding</div>
+        <div class="doc-title">${opts.judul}</div>
+        <div class="doc-sub">${opts.periode}</div>
+      </div>
+      <div class="doc-meta">Dicetak ${tgl}<br>pukul ${jam} WIB</div>
+    </div>
+    ${root.innerHTML}
+    <div class="sign">
+      <div class="sign-box"><div class="sign-role">Disiapkan oleh</div><div class="sign-line">${opts.brand||'Tim Brand'}</div></div>
+      <div class="sign-box"><div class="sign-role">Diperiksa / Disetujui</div><div class="sign-line">Direksi</div></div>
+    </div>
+    <div class="doc-foot">Dokumen ini dihasilkan otomatis oleh NRN Marketing Hub. Angka bersumber dari Trello, Google Sheets &amp; laporan sosmed bulanan.</div>
+    </body></html>`;
+}
+
+function openPrintWindow(html){
+  const w = window.open('','_blank');
+  if(!w){ alert('Popup diblokir browser. Izinkan popup untuk mencetak laporan.'); return; }
+  w.document.write(html); w.document.close();
+  w.onload = () => setTimeout(()=>w.print(), 250);
+  setTimeout(()=>{ try{ w.print(); }catch(e){} }, 700); // jaga-jaga kalau onload tidak jalan
+}
+
 /* ══════════ INSIGHT OTOMATIS (rule-based — tanpa API, gratis) ══════════
    Merangkum data yang SUDAH ter-generate (Agenda, Sosmed, Inquiry, Anggaran)
    jadi 3 kelompok: sudah jalan / perlu perhatian / butuh aksi.
@@ -697,10 +837,12 @@ $('cSearch').oninput = drawCustomers;
    ubah di dua-duanya. */
 const INS = { erLow:1, erGood:3, reachDrop:20, doneGood:80, doneLow:50,
               convLow:10, convGood:25, cancelHigh:40,
-              quoStale:30, sampStale:45, overspend:110, underspend:50 };
+              quoStale:30, sampStale:45, overspend:110, underspend:50,
+              dueSoon:7, saveRatio:5, shareRatio:3 };
 const insEsc = s => String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const insPct = (a,b) => b ? (a/b*100) : 0;
 const insR   = v => Math.round(v);
+const insSg  = v => (v>=0?'+':'')+insR(v)+'%';
 // Umur (hari) dari string tanggal; toleran thd 'yyyy-MM-dd' & 'dd MMM yyyy'.
 function insAge(s){
   if(!s) return null;
@@ -709,100 +851,217 @@ function insAge(s){
   if(isNaN(d2.getTime())) return null;
   return Math.floor((Date.now()-d2.getTime())/86400000);
 }
+// Alasan cancel yang jelas data uji — bukan alasan bisnis sungguhan.
+const INS_TEST_RE = /^(test|testing|tes|coba|cobain|dummy|sample|asal|abc|xxx+|\.+|-+|123\d*)\s*\d*$/i;
+function insIsTestCancel(x){
+  const r = String(x.alasanCancel||'').trim();
+  if(!r) return false;                    // alasan kosong = data asli yang belum diisi, bukan uji
+  return INS_TEST_RE.test(r);
+}
+// Nama tahap terakhir yang tercatat + tanggalnya (dari kolom tanggal statis)
+function insLastStep(x){
+  const steps = [['Cancel',x.tglCancel],['Deal',x.tglDeal],['Sampling',x.tglSampling],['Quotation',x.tglQuotation]];
+  for(const [nama,tgl] of steps) if(tgl) return {nama, tgl, umur:insAge(tgl)};
+  return null;
+}
 
-// D = { brand, month, prevM, nextM, bCur{est,proj,act}, bNext, so{reach,views,follows,er}, sp,
-//       ag[], agDone, agProg, agLabel(fn), inqAll[], inqQuo[], inqSamp[], inqDeal[], inqCancel[] }
+/* D = { brand, month, prevM, nextM,
+        bCur{est,proj,act}, bNext,
+        so{reach,views,follows,er,posts,likes,comments,shares,saves,storyER}, sp,
+        ag[], agDone, agProg, agLabel(fn),
+        inqMonth[]   — inquiry yang MASUK bulan laporan
+        inqPipeline[]— quotation+sampling yang masih berjalan (semua bulan)
+        inqDealMo[]  — deal di bulan laporan
+        inqCancelMo[]— cancel bulan laporan, alasan wajar (data uji sudah dibuang)
+        inqTestN     — jumlah cancel yang dibuang karena alasan = data uji
+        inqQuo[], inqSamp[] — pipeline dipecah per tahap } */
 function buildInsight(D){
   const S=[], W=[], A=[];
   const put=(g,scope,txt)=>g.push({scope,txt});
 
-  /* ── Anggaran ── */
+  /* ═══ ANGGARAN ═══ */
   const b = D.bCur;
   if(!b.est && !b.proj && !b.act){
-    put(A,'Anggaran',`Belum ada data anggaran ${D.month} sama sekali — cek apakah card Trello bulan ini sudah punya <code>Estimated Budget:</code> dan nominal <code>(Rp ...)</code> di checklist.`);
+    put(A,'Anggaran',`Belum ada data anggaran ${insEsc(D.month)} sama sekali. Kemungkinan card Trello bulan ini belum diisi <code>Estimated Budget:</code> di deskripsi, dan checklist-nya belum diberi nominal <code>(Rp ...)</code>.`);
   } else {
     if(!b.est && b.proj)
-      put(A,'Anggaran',`Proyeksi ${fmtRp(b.proj)} sudah jalan tapi <b>Budget Estimasi masih kosong</b>. Isi <code>Estimated Budget:</code> di deskripsi card supaya estimasi tidak terlewat.`);
+      put(A,'Anggaran',`Rencana belanja ${fmtRp(b.proj)} sudah jalan, tapi <b>patokan awalnya (Budget Estimasi) tidak pernah diisi</b> — jadi tidak ada pembanding untuk menilai rencana ini wajar atau tidak. Isi <code>Estimated Budget:</code> di deskripsi card.`);
     if(b.est && b.proj > b.est*1.2)
-      put(W,'Anggaran',`Proyeksi ${fmtRp(b.proj)} melampaui estimasi ${fmtRp(b.est)} (+${insR(insPct(b.proj-b.est,b.est))}%) — rencana membengkak dari patokan awal.`);
-    if(b.proj){
+      put(W,'Anggaran',`Rencana terkini ${fmtRp(b.proj)} sudah ${insSg(insPct(b.proj-b.est,b.est))} di atas patokan awal ${fmtRp(b.est)} — rencananya membengkak, meski uangnya belum tentu keluar.`);
+
+    // Aktual — bagian yang paling perlu bahasa manusia
+    if(b.proj && !b.act){
+      put(W,'Anggaran',`<b>Biaya aktual belum terupdate.</b> Rencana ${fmtRp(b.proj)} sudah tercatat, tapi realisasinya masih kosong. Kalau bulan ini memang sudah ada pengeluaran, minta tim mencatatnya; kalau memang belum ada yang keluar, berarti eksekusi belum jalan.`);
+    } else if(b.act){
       const sp = insPct(b.act,b.proj);
-      if(sp > INS.overspend)
-        put(A,'Anggaran',`Aktual ${fmtRp(b.act)} = <b>${insR(sp)}% dari proyeksi</b> (lebih ${fmtRp(b.act-b.proj)}). Perlu penjelasan overspend.`);
-      else if(sp < INS.underspend)
-        put(W,'Anggaran',`Serapan baru ${insR(sp)}% dari proyeksi (${fmtRp(b.act)} dari ${fmtRp(b.proj)}) — banyak rencana belum jalan atau belum dicatat.`);
-      else
-        put(S,'Anggaran',`Aktual ${fmtRp(b.act)} terkendali di ${insR(sp)}% proyeksi.`);
+      if(!b.proj){
+        put(W,'Anggaran',`Uang keluar ${fmtRp(b.act)} tapi <b>tidak ada rencana yang tercatat</b> untuk dibandingkan — pengeluaran ini di luar perencanaan, atau checklist-nya belum diberi nominal.`);
+      } else if(b.act > b.proj){
+        put(A,'Anggaran',`<b>Biaya aktual lebih besar dari rencana</b> — keluar ${fmtRp(b.act)} dari rencana ${fmtRp(b.proj)}, selisih ${fmtRp(b.act-b.proj)} (${insR(sp)}%). Ini perlu dipertanyakan: apa yang bikin lebih, dan apakah sudah disetujui?`);
+      } else if(sp < INS.underspend){
+        put(W,'Anggaran',`Baru ${fmtRp(b.act)} yang terpakai dari rencana ${fmtRp(b.proj)} (${insR(sp)}%). Sisa ${fmtRp(b.proj-b.act)} — entah rencananya mundur, atau ada yang belum dicatat.`);
+      } else {
+        put(S,'Anggaran',`Belanja terkendali: ${fmtRp(b.act)} dari rencana ${fmtRp(b.proj)} (${insR(sp)}%), masih di dalam rencana.`);
+      }
     }
+
     if(!D.bNext.proj)
-      put(A,'Anggaran',`Belum ada proyeksi untuk ${D.nextM}. Isi nominal <code>(Rp ...)</code> di checklist card bulan depan supaya bisa diantisipasi.`);
+      put(A,'Anggaran',`Belum ada rencana anggaran untuk ${insEsc(D.nextM)} — bulan depan belum bisa diantisipasi. Isi nominal <code>(Rp ...)</code> di checklist card bulan depan.`);
     else
-      put(S,'Anggaran',`Proyeksi ${D.nextM} sudah terisi ${fmtRp(D.bNext.proj)}.`);
+      put(S,'Anggaran',`Rencana ${insEsc(D.nextM)} sudah disiapkan ${fmtRp(D.bNext.proj)}.`);
   }
 
-  /* ── Agenda ── */
+  /* ═══ AGENDA ═══ */
   const agT = D.ag.length;
   if(!agT){
-    put(A,'Agenda',`Belum ada agenda ${D.month} — brand belum planning di Trello untuk bulan ini.`);
+    put(A,'Agenda',`Belum ada agenda ${insEsc(D.month)} — brand belum planning apa pun di Trello untuk bulan ini.`);
   } else {
     const dr = insPct(D.agDone,agT);
-    const overdue = D.ag.filter(x => D.agLabel(x.status)!=='Done' && x.sisaHari!=null && x.sisaHari<0);
-    const belum = agT - D.agDone - D.agProg;
-    if(dr >= INS.doneGood)      put(S,'Agenda',`${D.agDone}/${agT} agenda selesai (${insR(dr)}%) — eksekusi bulan ini rapi.`);
-    else if(dr >= INS.doneLow)  put(W,'Agenda',`Baru ${D.agDone}/${agT} agenda Done (${insR(dr)}%), ${D.agProg} masih In Progress.`);
-    else                        put(A,'Agenda',`Hanya ${D.agDone}/${agT} agenda Done (${insR(dr)}%) — eksekusi tertinggal jauh dari rencana.`);
-    if(overdue.length){
-      const s = overdue.slice(0,3).map(x=>insEsc(x.card||x.subtask)).join(', ');
-      put(A,'Agenda',`<b>${overdue.length} task lewat deadline</b> & belum Done: ${s}${overdue.length>3?', …':''}.`);
-    }
-    if(belum>0) put(W,'Agenda',`${belum} agenda belum tersentuh — belum ada checklist yang mulai jalan.`);
+    const belumDone = D.ag.filter(x => D.agLabel(x.status)!=='Done');
+    const overdue   = belumDone.filter(x => x.sisaHari!=null && x.sisaHari<0);
+    const dueSoon   = belumDone.filter(x => x.sisaHari!=null && x.sisaHari>=0 && x.sisaHari<=INS.dueSoon);
+    const belumMulai= D.ag.filter(x => ['Task Created','Checklist Created'].indexOf(D.agLabel(x.status))>=0);
+    const nm = x => insEsc(x.subtask || x.card || '(tanpa nama)');
+    const daftar = (arr,n) => arr.slice(0,n).map(x=>{
+      const d = x.deadline ? ` <span class="muted">(${insEsc(x.deadline)})</span>` : '';
+      return nm(x)+d;
+    }).join(' · ') + (arr.length>n?` <span class="muted">…+${arr.length-n} lagi</span>`:'');
+
+    if(dr >= INS.doneGood)      put(S,'Agenda',`${D.agDone} dari ${agT} agenda selesai (${insR(dr)}%) — eksekusi bulan ini rapi.`);
+    else if(dr >= INS.doneLow)  put(W,'Agenda',`Baru ${D.agDone} dari ${agT} agenda selesai (${insR(dr)}%); ${D.agProg} sedang dikerjakan.`);
+    else                        put(A,'Agenda',`Baru ${D.agDone} dari ${agT} agenda selesai (${insR(dr)}%) — eksekusi tertinggal jauh dari rencana.`);
+
+    if(overdue.length)
+      put(A,'Agenda',`<b>${overdue.length} sudah lewat deadline</b> dan belum selesai: ${daftar(overdue,4)}. Ini yang paling perlu dikejar.`);
+    if(dueSoon.length)
+      put(W,'Agenda',`<b>${dueSoon.length} deadline-nya tinggal ≤${INS.dueSoon} hari</b> dan belum selesai: ${daftar(dueSoon,4)}. Masih bisa dikejar kalau mulai sekarang.`);
+    if(belumMulai.length)
+      put(W,'Agenda',`${belumMulai.length} agenda belum tersentuh sama sekali (belum ada checklist yang jalan): ${daftar(belumMulai,3)}.`);
+    if(!overdue.length && D.agDone < agT && dr >= INS.doneLow)
+      put(S,'Agenda',`Tidak ada agenda yang lewat deadline — sisa ${agT-D.agDone} masih dalam jadwal.`);
   }
 
-  /* ── Social Media ── */
-  if(!D.so.reach && !D.so.views){
-    put(A,'Sosmed',`Data sosmed ${D.month} belum masuk — performa belum bisa dinilai. Pastikan laporan bulanan sudah di-submit.`);
+  /* ═══ SOSMED ═══ */
+  const so=D.so, sp=D.sp;
+  if(!so.reach && !so.views && !so.posts){
+    put(A,'Sosmed',`Data sosmed ${insEsc(D.month)} belum masuk — performa belum bisa dinilai. Pastikan laporan bulanan sudah di-submit lewat app Monthly Report.`);
   } else {
-    if(D.sp.reach){
-      const rd = insPct(D.so.reach - D.sp.reach, D.sp.reach);
+    // Jangkauan
+    if(sp.reach){
+      const rd = insPct(so.reach-sp.reach, sp.reach);
       if(rd <= -INS.reachDrop)
-        put(A,'Sosmed',`Reach turun ${Math.abs(insR(rd))}% (${fmtNum(D.sp.reach)} → ${fmtNum(D.so.reach)}) — penurunan tajam, cek frekuensi & jenis konten.`);
+        put(A,'Sosmed',`<b>Jangkauan turun tajam ${Math.abs(insR(rd))}%</b> — dari ${fmtNum(sp.reach)} orang (${insEsc(D.prevM)}) jadi ${fmtNum(so.reach)}. Cek frekuensi posting & jenis konten.`);
       else if(rd < 0)
-        put(W,'Sosmed',`Reach turun tipis ${Math.abs(insR(rd))}% vs ${D.prevM}.`);
+        put(W,'Sosmed',`Jangkauan turun tipis ${Math.abs(insR(rd))}% (${fmtNum(sp.reach)} → ${fmtNum(so.reach)} orang).`);
       else
-        put(S,'Sosmed',`Reach naik ${insR(rd)}% vs ${D.prevM} (${fmtNum(D.sp.reach)} → ${fmtNum(D.so.reach)}).`);
+        put(S,'Sosmed',`Jangkauan naik ${insR(rd)}% — dari ${fmtNum(sp.reach)} jadi ${fmtNum(so.reach)} orang.`);
+    } else if(so.reach){
+      put(S,'Sosmed',`Jangkauan ${insEsc(D.month)} ${fmtNum(so.reach)} orang (belum ada data ${insEsc(D.prevM)} untuk dibandingkan).`);
     }
-    if(D.so.er){
-      if(D.so.er < INS.erLow)        put(A,'Sosmed',`Avg ER ${D.so.er.toFixed(2)}% di bawah benchmark ${INS.erLow}% — konten kurang memicu interaksi.`);
-      else if(D.so.er >= INS.erGood) put(S,'Sosmed',`Avg ER ${D.so.er.toFixed(2)}% sehat (di atas ${INS.erGood}%).`);
-      else                           put(W,'Sosmed',`Avg ER ${D.so.er.toFixed(2)}% wajar tapi belum kuat (target >${INS.erGood}%).`);
-      const ed = D.so.er - D.sp.er;
-      if(D.sp.er && ed <= -0.5) put(W,'Sosmed',`ER turun ${Math.abs(ed).toFixed(2)}pp vs ${D.prevM} — engagement melemah walau reach mungkin naik.`);
+
+    // Engagement rate
+    if(so.er){
+      const ed = (so.er && sp.er) ? so.er-sp.er : null;
+      const arah = ed==null ? '' : ed>=0 ? ` (naik ${ed.toFixed(2)}pp dari ${insEsc(D.prevM)})` : ` (turun ${Math.abs(ed).toFixed(2)}pp dari ${insEsc(D.prevM)})`;
+      if(so.er < INS.erLow)        put(A,'Sosmed',`Engagement rate ${so.er.toFixed(2)}%${arah} — di bawah batas sehat ${INS.erLow}%. Konten dilihat tapi tidak memancing orang berinteraksi.`);
+      else if(so.er >= INS.erGood) put(S,'Sosmed',`Engagement rate ${so.er.toFixed(2)}%${arah} — sehat, di atas ${INS.erGood}%.`);
+      else                         put(W,'Sosmed',`Engagement rate ${so.er.toFixed(2)}%${arah} — wajar tapi belum kuat (target >${INS.erGood}%).`);
     }
-    if(D.sp.follows>0 && D.so.follows<=0) put(W,'Sosmed',`Follows ${D.month} ${fmtNum(D.so.follows)} — pertumbuhan follower berhenti.`);
+
+    // Kualitas interaksi: save & share itu sinyal paling kuat
+    const eng = (so.likes||0)+(so.comments||0)+(so.shares||0)+(so.saves||0);
+    if(eng){
+      const shareP = insPct(so.shares||0, eng), saveP = insPct(so.saves||0, eng);
+      const rinci = `${fmtNum(so.likes||0)} like · ${fmtNum(so.comments||0)} komentar · ${fmtNum(so.shares||0)} share · ${fmtNum(so.saves||0)} save`;
+      if(saveP >= INS.saveRatio || shareP >= INS.shareRatio)
+        put(S,'Sosmed',`Interaksi berkualitas: ${rinci}. Save ${saveP.toFixed(1)}% & share ${shareP.toFixed(1)}% dari total — orang bukan cuma like, tapi menyimpan/menyebarkan.`);
+      else
+        put(W,'Sosmed',`Dari ${fmtNum(eng)} interaksi (${rinci}), <b>share cuma ${shareP.toFixed(1)}% dan save ${saveP.toFixed(1)}%</b> — mayoritas berhenti di like. Konten kurang layak disimpan/dibagikan.`);
+    }
+
+    // Efisiensi konten
+    if(so.posts){
+      const rpp = Math.round((so.reach||0)/so.posts), epp = Math.round(eng/so.posts);
+      const prevPosts = sp.posts||0;
+      let bandingan = '';
+      if(prevPosts){
+        const dp = so.posts - prevPosts;
+        bandingan = dp===0 ? ` (sama dgn ${insEsc(D.prevM)})` : ` (${dp>0?'+':''}${dp} dari ${insEsc(D.prevM)})`;
+      }
+      put(S,'Sosmed',`${so.posts} konten diposting${bandingan} — rata-rata menjangkau ${fmtNum(rpp)} orang & ${fmtNum(epp)} interaksi per konten.`);
+      // Posting lebih banyak tapi reach turun = konten makin tidak efektif
+      if(prevPosts && so.posts > prevPosts && sp.reach && so.reach < sp.reach)
+        put(A,'Sosmed',`<b>Posting lebih banyak (${prevPosts} → ${so.posts}) tapi jangkauan malah turun</b> — menambah jumlah konten tidak menyelesaikan masalah; yang perlu diperbaiki kualitas/format, bukan kuantitas.`);
+      if(prevPosts && so.posts < prevPosts*0.6)
+        put(W,'Sosmed',`Jumlah konten turun drastis (${prevPosts} → ${so.posts}) — konsistensi posting berkurang.`);
+    }
+
+    // Follower
+    if(so.follows<=0 && sp.follows>0)
+      put(W,'Sosmed',`Tidak ada follower baru bulan ini (${insEsc(D.prevM)}: ${fmtNum(sp.follows)}) — pertumbuhan berhenti.`);
+    else if(so.follows>0)
+      put(S,'Sosmed',`${fmtNum(so.follows)} follower baru${sp.follows?` (${insEsc(D.prevM)}: ${fmtNum(sp.follows)})`:''}.`);
+
+    if(so.storyER!=null && so.storyER>0)
+      put(so.storyER>=INS.erGood?S:W,'Sosmed',`Story ER ${so.storyER.toFixed(2)}%${so.storyER<INS.erGood?` — di bawah target ${INS.erGood}%`:' — story cukup diminati'}.`);
   }
 
-  /* ── Inquiry ── */
-  const tot = D.inqAll.length;
-  if(!tot){
-    put(A,'Inquiry',`Belum ada inquiry tercatat — pipeline kosong, tidak ada yang bisa di-follow up.`);
+  /* ═══ INQUIRY ═══ */
+  const mo = D.inqMonth, pipe = D.inqPipeline;
+  const dealMo = D.inqDealMo, cancelMo = D.inqCancelMo;
+  if(!mo.length && !pipe.length){
+    put(A,'Inquiry',`Tidak ada inquiry masuk di ${insEsc(D.month)} dan tidak ada pipeline berjalan — tidak ada yang bisa di-follow up.`);
   } else {
-    const deal=D.inqDeal.length, cancel=D.inqCancel.length;
-    const conv = insPct(deal,tot);
-    const pipeArr = D.inqQuo.concat(D.inqSamp);
-    const pipeRp  = pipeArr.reduce((s,x)=>s+(x.nominal||0),0);
-    if(conv >= INS.convGood)     put(S,'Inquiry',`Konversi ${insR(conv)}% (${deal}/${tot} deal) — di atas target ${INS.convGood}%.`);
-    else if(conv < INS.convLow)  put(A,'Inquiry',`Konversi hanya ${insR(conv)}% (${deal}/${tot} deal) — mayoritas inquiry tidak jadi, cek kualitas lead & follow up.`);
-    else                         put(W,'Inquiry',`Konversi ${insR(conv)}% (${deal}/${tot} deal) — masih di bawah target ${INS.convGood}%.`);
-    if(pipeArr.length)
-      put(S,'Inquiry',`${pipeArr.length} inquiry masih berjalan senilai ${fmtRp(pipeRp)} — potensi closing yang perlu dikejar.`);
-    if(cancel && insPct(cancel,tot) > INS.cancelHigh)
-      put(W,'Inquiry',`Cancel ${insR(insPct(cancel,tot))}% (${cancel}/${tot}) — cek alasan cancel yang paling sering muncul.`);
-    const stale = D.inqQuo.filter(x=>{ const a=insAge(x.tglQuotation); return a!=null && a>INS.quoStale; });
-    if(stale.length)
-      put(A,'Inquiry',`<b>${stale.length} quotation mengendap >${INS.quoStale} hari</b> tanpa maju ke sampling: ${stale.slice(0,3).map(x=>insEsc(x.customer)).join(', ')}${stale.length>3?', …':''}.`);
-    const sStale = D.inqSamp.filter(x=>{ const a=insAge(x.tglSampling); return a!=null && a>INS.sampStale; });
-    if(sStale.length)
-      put(A,'Inquiry',`${sStale.length} sampling jalan >${INS.sampStale} hari belum closing: ${sStale.slice(0,3).map(x=>insEsc(x.customer)).join(', ')}${sStale.length>3?', …':''}.`);
+    // Performa bulan ini
+    if(mo.length){
+      const conv = insPct(dealMo.length, mo.length);
+      const nilaiDeal = dealMo.reduce((s,x)=>s+(x.nominal||0),0);
+      if(conv >= INS.convGood)     put(S,'Inquiry',`${mo.length} inquiry masuk ${insEsc(D.month)}, ${dealMo.length} jadi deal (${insR(conv)}%) senilai ${fmtRp(nilaiDeal)} — konversi di atas target ${INS.convGood}%.`);
+      else if(conv < INS.convLow)  put(A,'Inquiry',`${mo.length} inquiry masuk ${insEsc(D.month)} tapi <b>cuma ${dealMo.length} yang jadi (${insR(conv)}%)</b> — mayoritas tidak closing. Cek kualitas lead & cara follow up.`);
+      else                         put(W,'Inquiry',`${mo.length} inquiry masuk ${insEsc(D.month)}, ${dealMo.length} jadi deal (${insR(conv)}%) senilai ${fmtRp(nilaiDeal)} — masih di bawah target ${INS.convGood}%.`);
+    } else {
+      put(W,'Inquiry',`Tidak ada inquiry baru masuk di ${insEsc(D.month)} — pipeline tidak bertambah bulan ini.`);
+    }
+
+    // Pipeline berjalan
+    if(pipe.length){
+      const nilai = pipe.reduce((s,x)=>s+(x.nominal||0),0);
+      put(S,'Inquiry',`${pipe.length} inquiry masih berjalan senilai ${fmtRp(nilai)} (${D.inqQuo.length} quotation · ${D.inqSamp.length} sampling) — ini yang perlu dikejar.`);
+
+      // Mengendap: sebut nama + sudah berapa lama + terakhir sampai tahap apa
+      const staleQ = D.inqQuo.filter(x=>{ const a=insAge(x.tglQuotation); return a!=null && a>INS.quoStale; })
+                             .sort((a,b)=>(insAge(b.tglQuotation)||0)-(insAge(a.tglQuotation)||0));
+      const staleS = D.inqSamp.filter(x=>{ const a=insAge(x.tglSampling); return a!=null && a>INS.sampStale; })
+                             .sort((a,b)=>(insAge(b.tglSampling)||0)-(insAge(a.tglSampling)||0));
+      const rinci = (arr,tglKey,n) => arr.slice(0,n).map(x=>{
+        const a=insAge(x[tglKey]);
+        return `<b>${insEsc(x.customer)}</b> (${a} hari${x.nominal?', '+fmtRp(x.nominal):''})`;
+      }).join(' · ') + (arr.length>n?` <span class="muted">…+${arr.length-n} lagi</span>`:'');
+      if(staleQ.length)
+        put(A,'Inquiry',`<b>${staleQ.length} quotation mengendap >${INS.quoStale} hari</b> tanpa maju ke sampling: ${rinci(staleQ,'tglQuotation',4)}. Follow up atau tutup sebagai cancel supaya pipeline tidak menipu.`);
+      if(staleS.length)
+        put(A,'Inquiry',`<b>${staleS.length} sampling jalan >${INS.sampStale} hari</b> belum closing: ${rinci(staleS,'tglSampling',4)}. Sampling yang terlalu lama biasanya tanda ada yang mengganjal di harga/spek.`);
+      if(!staleQ.length && !staleS.length)
+        put(S,'Inquiry',`Tidak ada inquiry yang mengendap — semua pipeline masih bergerak dalam waktu wajar.`);
+    } else if(mo.length){
+      put(W,'Inquiry',`Tidak ada pipeline yang berjalan — semua inquiry sudah tuntas (deal/cancel), tidak ada potensi closing tersisa.`);
+    }
+
+    // Cancel (alasan wajar saja — data uji sudah dibuang)
+    if(cancelMo.length){
+      const cr = insPct(cancelMo.length, Math.max(mo.length,1));
+      const alasan = {};
+      cancelMo.forEach(x=>{ const r=String(x.alasanCancel||'').trim()||'(tanpa alasan)'; alasan[r]=(alasan[r]||0)+1; });
+      const top = Object.entries(alasan).sort((a,b)=>b[1]-a[1]).slice(0,3)
+                        .map(([r,n])=>`${insEsc(r)}${n>1?` (${n}×)`:''}`).join(' · ');
+      if(mo.length && cr > INS.cancelHigh)
+        put(W,'Inquiry',`<b>${cancelMo.length} dari ${mo.length} inquiry ${insEsc(D.month)} batal (${insR(cr)}%)</b>. Alasan terbanyak: ${top}. Kalau alasannya berulang, itu masalah yang bisa diperbaiki.`);
+      else
+        put(W,'Inquiry',`${cancelMo.length} inquiry batal di ${insEsc(D.month)}. Alasan: ${top}.`);
+      const tanpaAlasan = cancelMo.filter(x=>!String(x.alasanCancel||'').trim()).length;
+      if(tanpaAlasan)
+        put(W,'Inquiry',`${tanpaAlasan} cancel tidak diisi alasannya — tanpa alasan, tidak ada yang bisa dipelajari dari kegagalan itu.`);
+    }
   }
 
   return { sudah:S, perhatian:W, aksi:A };
@@ -831,14 +1090,14 @@ function insightBoxHtml(title, headTxt, R, footTxt){
 
 function insightHtml(D){
   const R = buildInsight(D);
+  const uji = D.inqTestN ? ` · ${D.inqTestN} cancel data uji dikecualikan` : '';
   return insightBoxHtml(
     '🤖 Ringkasan &amp; Saran Otomatis',
-    `${D.brand?insEsc(D.brand)+' · ':''}${insEsc(D.month)} — ${R.sudah.length} berjalan baik · ${R.perhatian.length} perlu perhatian · ${R.aksi.length} butuh aksi`,
+    `${D.brand?insEsc(D.brand)+' · ':''}${insEsc(D.month)} — ${R.sudah.length} berjalan baik · ${R.perhatian.length} perlu perhatian · ${R.aksi.length} butuh aksi${uji}`,
     R,
-    'Dihitung otomatis dari Agenda, Sosmed, Inquiry &amp; Anggaran dengan ambang tetap — <b>bukan pengganti</b> Analisa Kualitatif di bawah. Sifatnya indikatif; keputusan tetap di brand.'
+    'Dirangkum otomatis dari Agenda, Sosmed, Inquiry &amp; Anggaran di atas, memakai ambang tetap — <b>bukan pengganti</b> Analisa Kualitatif. Sifatnya indikatif; keputusan tetap di brand.'
   );
 }
-
 /* ====== EDIT ====== */
 // Timeline read-only: tanggal tiap tahap, terisi otomatis oleh sistem & statis.
 function timelineHtml(x){
@@ -1183,29 +1442,129 @@ function lapAssemble(){
   const bCur=bud(lapMonth), bNext=bud(nextM);
   const mk=(brandMkt&&brandMkt.rows)||[], sumK=(a,k)=>a.reduce((s,x)=>s+(x[k]||0),0), avgK=(a,k)=>a.length?a.reduce((s,x)=>s+(x[k]||0),0)/a.length:0;
   const mc=mk.filter(r=>r.month===lapMonth), mp=mk.filter(r=>r.month===prevM);
-  const so={reach:sumK(mc,'reach'),views:sumK(mc,'views'),follows:sumK(mc,'follows'),er:avgK(mc,'avgER')};
-  const sp={reach:sumK(mp,'reach'),views:sumK(mp,'views'),follows:sumK(mp,'follows'),er:avgK(mp,'avgER')};
+  const soc=a=>({reach:sumK(a,'reach'),views:sumK(a,'views'),follows:sumK(a,'follows'),er:avgK(a,'avgER'),
+                 posts:sumK(a,'posts'),likes:sumK(a,'likes'),comments:sumK(a,'comments'),
+                 shares:sumK(a,'shares'),saves:sumK(a,'saves'),
+                 storyER:a.some(r=>r.storyER!=null)?avgK(a.filter(r=>r.storyER!=null),'storyER'):null});
+  const so=soc(mc), sp=soc(mp);
   const ag=((brandAgenda&&brandAgenda.detail)||[]).filter(x=>x.bulan===lapMonth);
   const agDone=ag.filter(x=>agStatusLabel(x.status)==='Done').length, agProg=ag.filter(x=>agStatusLabel(x.status)==='In Progress').length;
+  const agBelum=ag.filter(x=>agStatusLabel(x.status)!=='Done');
+  const agOverdue=agBelum.filter(x=>x.sisaHari!=null&&x.sisaHari<0).sort((a,b)=>a.sisaHari-b.sisaHari);
+  const agDueSoon=agBelum.filter(x=>x.sisaHari!=null&&x.sisaHari>=0&&x.sisaHari<=INS.dueSoon).sort((a,b)=>a.sisaHari-b.sisaHari);
   const inq=currentList||[];
-  // inqQ = pipeline berjalan (quotation + sampling); inqS = sampling saja
-  const inqQ=inq.filter(x=>['quotation','sampling'].indexOf(statusKey_(x.status))>=0);
-  const inqS=inq.filter(x=>statusKey_(x.status)==='sampling');
-  const inqW=inq.filter(x=>statusKey_(x.status)==='deal');
-  const inqL=inq.filter(x=>statusKey_(x.status)==='cancel');
-  return {yr,mi,prevM,nextM,bCur,bNext,so,sp,ag,agDone,agProg,inq,inqQ,inqS,inqW,inqL,sumK};
+  // — Inquiry dipisah: yang MASUK bulan laporan vs pipeline yang MASIH berjalan —
+  // timestamp brand = 'yyyy-MM-dd HH:mm'
+  const inBulan = x => { const t=String(x.timestamp||''); return t.slice(0,4)==String(yr) && Number(t.slice(5,7))===mi+1; };
+  // Cancel dgn alasan data uji dibuang dari SEMUA hitungan & tabel — kalau tidak,
+  // ia ikut jadi penyebut konversi dan bikin angkanya menipu.
+  const inqMonthRaw = inq.filter(inBulan);
+  const inqTestN = inqMonthRaw.filter(insIsTestCancel).length;
+  const inqMonth = inqMonthRaw.filter(x=>!insIsTestCancel(x));
+  const inqQ  = inq.filter(x=>statusKey_(x.status)==='quotation');   // pipeline: semua bulan
+  const inqS  = inq.filter(x=>statusKey_(x.status)==='sampling');
+  const inqPipeline = inqQ.concat(inqS);
+  const inqW  = inqMonth.filter(x=>statusKey_(x.status)==='deal');   // deal bulan ini
+  const inqL  = inqMonth.filter(x=>statusKey_(x.status)==='cancel'); // cancel alasan wajar
+  return {yr,mi,prevM,nextM,bCur,bNext,so,sp,ag,agDone,agProg,agBelum,agOverdue,agDueSoon,
+          inq,inqMonth,inqPipeline,inqQ,inqS,inqW,inqL,inqTestN,sumK};
 }
+
 // Adapter: bentuk data lapAssemble() → kontrak buildInsight()
 function lapInsightData(R){
   return {
     brand: auth.brand, month: lapMonth, prevM: R.prevM, nextM: R.nextM,
     bCur: R.bCur, bNext: R.bNext, so: R.so, sp: R.sp,
     ag: R.ag, agDone: R.agDone, agProg: R.agProg, agLabel: agStatusLabel,
-    inqAll:  R.inq,
-    inqQuo:  R.inq.filter(x=>statusKey_(x.status)==='quotation'),
-    inqSamp: R.inqS, inqDeal: R.inqW, inqCancel: R.inqL,
+    inqMonth: R.inqMonth, inqPipeline: R.inqPipeline,
+    inqDealMo: R.inqW, inqCancelMo: R.inqL, inqTestN: R.inqTestN,
+    inqQuo: R.inqQ, inqSamp: R.inqS,
   };
 }
+
+/* Alias supaya blok helper bersama memanggil fungsi yang benar di app ini */
+const lapAgLabel = agStatusLabel, lapAgPill = agPill;
+const lapInqPill = statusPill,    lapInqKey = statusKey_;
+
+/* ══════════ POTONGAN TAMPILAN LAPORAN (dipakai layar & PDF) ══════════
+   Blok identik di nrn-inquiry-form & nrn-dashboard — ubah di dua-duanya.
+   Memakai alias lapAgLabel/lapAgPill/lapInqPill/lapInqKey karena nama asli
+   fungsi pill berbeda di tiap app (statusPill = agenda di dashboard,
+   tapi = inquiry di Brand Needs). */
+
+// Kalimat penjelas anggaran — bahasa manusia, bukan cuma angka.
+function lapAnggaranNote(R, month, nextM){
+  const b=R.bCur, t=[];
+  if(!b.est&&!b.proj&&!b.act) t.push('Belum ada data anggaran untuk bulan ini.');
+  else {
+    if(!b.est&&b.proj) t.push('<b>Budget Estimasi belum diisi</b>, jadi rencana '+fmtRp(b.proj)+' tidak punya pembanding.');
+    if(b.proj&&!b.act) t.push('<b>Biaya aktual belum terupdate</b> — belum ada realisasi tercatat. Kalau sudah ada pengeluaran, minta tim mencatatnya di Trello.');
+    else if(b.act&&b.proj&&b.act>b.proj) t.push('<b>Aktual melebihi rencana</b> sebesar '+fmtRp(b.act-b.proj)+' ('+Math.round(b.act/b.proj*100)+'% dari rencana) — perlu dipertanyakan.');
+    else if(b.act&&b.proj) t.push('Terpakai '+Math.round(b.act/b.proj*100)+'% dari rencana; sisa '+fmtRp(Math.max(0,b.proj-b.act))+'.');
+    else if(b.act&&!b.proj) t.push('Ada pengeluaran '+fmtRp(b.act)+' tanpa rencana tercatat.');
+  }
+  if(!R.bNext.proj) t.push('Rencana '+nextM+' belum ada.');
+  t.push('<b>Estimasi</b> = patokan awal dari deskripsi card · <b>Proyeksi</b> = rencana terkini dari nominal di checklist · <b>Aktual</b> = realisasi.');
+  return '<div class="note">'+t.join(' ')+'</div>';
+}
+
+// Efisiensi konten: reach & interaksi per post
+function lapEfisiensi(R){
+  const so=R.so, sp=R.sp;
+  if(!so.posts) return '<div class="note">Belum ada konten tercatat di bulan ini.</div>';
+  const eng=(so.likes||0)+(so.comments||0)+(so.shares||0)+(so.saves||0);
+  const engP=(sp.likes||0)+(sp.comments||0)+(sp.shares||0)+(sp.saves||0);
+  const per=(v,n)=>n?Math.round(v/n):0;
+  const cmp=(c,p)=>{ if(!p) return ''; const d=Math.round((c-p)/p*100);
+    return ` <span style="color:${d>=0?'var(--green4)':'var(--red)'};font-size:11px">${d>=0?'▲':'▼'} ${Math.abs(d)}%</span>`; };
+  return `<div class="kpis" style="margin-top:8px">
+    <div class="kpi"><h3>Reach / konten</h3><div class="v num">${fmtNum(per(so.reach,so.posts))}${cmp(per(so.reach,so.posts),per(sp.reach,sp.posts))}</div></div>
+    <div class="kpi"><h3>Interaksi / konten</h3><div class="v num">${fmtNum(per(eng,so.posts))}${cmp(per(eng,so.posts),per(engP,sp.posts))}</div></div>
+    <div class="kpi"><h3>Views / konten</h3><div class="v num">${fmtNum(per(so.views,so.posts))}${cmp(per(so.views,so.posts),per(sp.views,sp.posts))}</div></div>
+    <div class="kpi"><h3>Total interaksi</h3><div class="v num">${fmtNum(eng)}${cmp(eng,engP)}</div></div>
+  </div>
+  <div class="note">Efisiensi konten = hasil dibagi jumlah posting. Naiknya angka ini berarti konten makin efektif, bukan sekadar makin banyak.</div>`;
+}
+
+// Tabel agenda: yang belum selesai diutamakan (telat → mepet → sisanya)
+function lapAgendaTable(R){
+  if(!R.ag.length) return '<div class="note">Belum ada agenda di bulan ini.</div>';
+  const rank=x=>{ const L=lapAgLabel(x.status); if(L==='Done')return 3;
+    if(x.sisaHari!=null&&x.sisaHari<0)return 0; if(x.sisaHari!=null&&x.sisaHari<=INS.dueSoon)return 1; return 2; };
+  const rows=R.ag.slice().sort((a,b)=>rank(a)-rank(b)||((a.sisaHari==null?999:a.sisaHari)-(b.sisaHari==null?999:b.sisaHari))).map(x=>{
+    const L=lapAgLabel(x.status), r=rank(x);
+    const sisa = L==='Done' ? '<span style="color:var(--green4)">✓ Completed</span>'
+      : x.sisaHari==null ? '—'
+      : x.sisaHari<0 ? `<b style="color:var(--red)">telat ${Math.abs(x.sisaHari)} hari</b>`
+      : x.sisaHari<=INS.dueSoon ? `<b style="color:var(--amber)">${x.sisaHari} hari lagi</b>`
+      : `${x.sisaHari} hari lagi`;
+    return `<tr class="${r===0?'lap-od':r===1?'lap-soon':''}"><td>${insEsc(x.card)||'—'}</td><td>${insEsc(x.subtask)||'—'}</td>
+      <td>${insEsc(x.deadline)||'—'}</td><td>${sisa}</td><td>${lapAgPill(x.status)}</td><td class="muted">${insEsc(x.pic)||'—'}</td></tr>`;
+  }).join('');
+  return `<div class="tablewrap"><table><thead><tr><th>Card / Agenda</th><th>Task</th><th>Deadline</th><th>Sisa</th><th>Status</th><th>PIC</th></tr></thead><tbody>${rows}</tbody></table></div>
+  <div class="note">Diurutkan: lewat deadline dulu, lalu yang mepet (≤${INS.dueSoon} hari), lalu sisanya. Baris merah = telat, kuning = mepet.</div>`;
+}
+
+// Tabel inquiry: tanggal masuk, tahap terakhir + kapan, umur, nominal
+function lapInqTable(list, kosong){
+  if(!list.length) return '<div class="note">'+kosong+'</div>';
+  const rows=list.slice().sort((a,b)=>String(b.timestamp||'').localeCompare(String(a.timestamp||''))).map(x=>{
+    const st=insLastStep(x);
+    const tahap = st ? `${st.nama} <span class="muted">· ${insEsc(st.tgl)}</span>` : '<span class="muted">belum ada tanggal</span>';
+    const jalan = ['quotation','sampling'].indexOf(lapInqKey(x.status))>=0;
+    const umur = st && st.umur!=null
+      ? (jalan && st.umur>INS.quoStale ? `<b style="color:var(--red)">${st.umur} hari</b>` : `${st.umur} hari`)
+      : '—';
+    const alasan = lapInqKey(x.status)==='cancel' ? (insEsc(x.alasanCancel)||'<span class="muted">tanpa alasan</span>') : '';
+    return `<tr><td>${insEsc(String(x.timestamp||'').slice(0,11))||'—'}</td><td>${insEsc(x.customer)||'—'}</td>
+      <td>${insEsc(x.product)||'—'}</td><td class="r num">${fmtRp(x.nominal)}</td>
+      <td>${lapInqPill(x.status)}</td><td>${tahap}</td><td>${umur}</td>
+      <td class="muted">${alasan||insEsc(x.salesPic)||'—'}</td></tr>`;
+  }).join('');
+  return `<div class="tablewrap"><table><thead><tr><th>Tgl Masuk</th><th>Customer</th><th>Produk</th><th class="r">Nominal</th><th>Status</th><th>Update Terakhir</th><th>Umur</th><th>Alasan / PIC</th></tr></thead><tbody>${rows}</tbody></table></div>
+  <div class="note"><b>Update Terakhir</b> = tahap terakhir yang tercatat &amp; tanggalnya · <b>Umur</b> = sudah berapa lama di tahap itu (merah = mengendap &gt;${INS.quoStale} hari).</div>`;
+}
+
 function renderBrandLaporan(){
   const box=$('pane-laporan'), R=lapAssemble(), N=lapNotesBrand||{};
   const opt=AG_MON.map(m=>`<option ${m===lapMonth?'selected':''}>${m}</option>`).join('');
@@ -1221,41 +1580,64 @@ function renderBrandLaporan(){
     <div id="lap-report">
     <div class="section-title">📄 Laporan Bulanan — ${esc(auth.brand)} · ${lapMonth} ${R.yr}</div>
 
-    ${insightHtml(lapInsightData(R))}
-
     <div class="section-title">💰 Penggunaan Anggaran</div>
     <div class="kpis">
-      <div class="kpi"><h3>Budget Estimasi</h3><div class="v num" style="font-size:19px">${fmtRp(R.bCur.est)}</div></div>
-      <div class="kpi wait"><h3>Proyeksi</h3><div class="v num" style="font-size:19px">${fmtRp(R.bCur.proj)}</div></div>
-      <div class="kpi"><h3>Aktual</h3><div class="v num" style="font-size:19px">${fmtRp(R.bCur.act)}</div></div>
-      <div class="kpi"><h3>Proyeksi ${R.nextM}</h3><div class="v num" style="font-size:19px">${fmtRp(R.bNext.proj)}</div></div>
+      <div class="kpi"><h3>Budget Estimasi</h3><div class="v num" style="font-size:19px">${R.bCur.est?fmtRp(R.bCur.est):'<span class="lap-na">belum diisi</span>'}</div></div>
+      <div class="kpi wait"><h3>Proyeksi</h3><div class="v num" style="font-size:19px">${R.bCur.proj?fmtRp(R.bCur.proj):'<span class="lap-na">belum ada</span>'}</div></div>
+      <div class="kpi"><h3>Aktual</h3><div class="v num" style="font-size:19px">${R.bCur.act?fmtRp(R.bCur.act):'<span class="lap-na">belum terupdate</span>'}</div></div>
+      <div class="kpi"><h3>Proyeksi ${R.nextM}</h3><div class="v num" style="font-size:19px">${R.bNext.proj?fmtRp(R.bNext.proj):'<span class="lap-na">belum ada</span>'}</div></div>
     </div>
+    ${lapAnggaranNote(R, lapMonth, R.nextM)}
 
     <div class="section-title">📊 Social Media — ${lapMonth} vs ${R.prevM}</div>
     <div class="tablewrap"><table><thead><tr><th>Metrik</th><th>${R.prevM}</th><th>${lapMonth}</th><th>Perubahan</th></tr></thead><tbody>
-      ${soRow('Reach',R.so.reach,R.sp.reach,false)}${soRow('Views',R.so.views,R.sp.views,false)}${soRow('Follows',R.so.follows,R.sp.follows,false)}${soRow('Avg ER',R.so.er,R.sp.er,true)}
+      ${soRow('Konten diposting',R.so.posts,R.sp.posts,false)}
+      ${soRow('Jangkauan (Reach)',R.so.reach,R.sp.reach,false)}
+      ${soRow('Tayangan (Views)',R.so.views,R.sp.views,false)}
+      ${soRow('Likes',R.so.likes,R.sp.likes,false)}
+      ${soRow('Komentar',R.so.comments,R.sp.comments,false)}
+      ${soRow('Shares',R.so.shares,R.sp.shares,false)}
+      ${soRow('Saves',R.so.saves,R.sp.saves,false)}
+      ${soRow('Follower baru',R.so.follows,R.sp.follows,false)}
+      ${soRow('Avg ER',R.so.er,R.sp.er,true)}
+      ${R.so.storyER!=null||R.sp.storyER!=null?soRow('Story ER',R.so.storyER||0,R.sp.storyER||0,true):''}
     </tbody></table></div>
+    ${lapEfisiensi(R)}
 
     <div class="section-title">📌 Agenda Monitoring — ${lapMonth}</div>
     <div class="kpis">
       <div class="kpi"><h3>Total Agenda</h3><div class="v num">${R.ag.length}</div></div>
       <div class="kpi deal"><h3>✓ Done</h3><div class="v num">${R.agDone}</div></div>
       <div class="kpi wait"><h3>◐ In Progress</h3><div class="v num">${R.agProg}</div></div>
+      <div class="kpi cancel"><h3>⚠ Lewat deadline</h3><div class="v num">${R.agOverdue.length}</div></div>
+      <div class="kpi sampling"><h3>⏰ Deadline ≤7 hari</h3><div class="v num">${R.agDueSoon.length}</div></div>
     </div>
+    ${lapAgendaTable(R)}
 
-    <div class="section-title">📋 Progres Inquiry</div>
+    <div class="section-title">📋 Inquiry Masuk ${lapMonth}</div>
     <div class="kpis">
-      <div class="kpi wait"><h3>Berjalan (Quotation)</h3><div class="v num">${R.inqQ.length - R.inqS.length}</div></div>
-      <div class="kpi sampling"><h3>On going sampling</h3><div class="v num">${R.inqS.length}</div></div>
-      <div class="kpi deal"><h3>Masuk (Deal)</h3><div class="v num">${R.inqW.length}</div></div>
-      <div class="kpi cancel"><h3>Gagal (Cancel)</h3><div class="v num">${R.inqL.length}</div></div>
+      <div class="kpi"><h3>Masuk bulan ini</h3><div class="v num">${R.inqMonth.length}</div></div>
+      <div class="kpi deal"><h3>✅ Jadi Deal</h3><div class="v num">${R.inqW.length}</div><div class="lap-sub">${fmtRp(R.sumK(R.inqW,'nominal'))}</div></div>
+      <div class="kpi cancel"><h3>❌ Batal</h3><div class="v num">${R.inqL.length}</div>${R.inqTestN?`<div class="lap-sub">${R.inqTestN} data uji dikecualikan</div>`:''}</div>
+      <div class="kpi conv"><h3>📈 Konversi</h3><div class="v num">${R.inqMonth.length?Math.round(R.inqW.length/R.inqMonth.length*100):0}%</div></div>
     </div>
+    ${lapInqTable(R.inqMonth,'Belum ada inquiry masuk di '+lapMonth+'.')}
+
+    <div class="section-title">🔄 Pipeline Masih Berjalan <span class="muted" style="font-size:12px;font-weight:400">(semua bulan)</span></div>
+    <div class="kpis">
+      <div class="kpi wait"><h3>📝 Quotation</h3><div class="v num">${R.inqQ.length}</div><div class="lap-sub">${fmtRp(R.sumK(R.inqQ,'nominal'))}</div></div>
+      <div class="kpi sampling"><h3>🔬 On going sampling</h3><div class="v num">${R.inqS.length}</div><div class="lap-sub">${fmtRp(R.sumK(R.inqS,'nominal'))}</div></div>
+      <div class="kpi"><h3>Total potensi</h3><div class="v num" style="font-size:19px">${fmtRp(R.sumK(R.inqPipeline,'nominal'))}</div></div>
+    </div>
+    ${lapInqTable(R.inqPipeline,'Tidak ada pipeline yang berjalan.')}
+
+    ${insightHtml(lapInsightData(R))}
 
     <div class="section-title">📝 Analisa Kualitatif <span class="muted" style="font-size:12px;font-weight:400">(diisi brand)</span></div>
     <div class="card">
       ${ta('lWins','🏆 Wins bulan lalu',N.wins,`Data: Reach ${lapMonth} ${fmtNum(R.so.reach)} vs ${R.prevM} ${fmtNum(R.sp.reach)}; Deal ${R.inqW.length}.`)}
       ${ta('lLosses','⚠️ Losses / kendala',N.losses,`Data: Cancel ${R.inqL.length}; Agenda belum Done ${R.ag.length-R.agDone}.`)}
-      ${ta('lOpp','💡 Opportunity (inquiry/non)',N.opportunity,`Data: ${R.inqQ.length} inquiry masih berjalan (potensi closing) senilai ${fmtRp(R.sumK(R.inqQ,'nominal'))}.`)}
+      ${ta('lOpp','💡 Opportunity (inquiry/non)',N.opportunity,`Data: ${R.inqPipeline.length} inquiry masih berjalan (potensi closing) senilai ${fmtRp(R.sumK(R.inqPipeline,'nominal'))}.`)}
       ${ta('lProb','🔮 Calon problem bulan depan',N.problem,`Data: Proyeksi ${R.nextM} ${fmtRp(R.bNext.proj)}.`)}
       <button id="lapSave" class="btn btn-gold">💾 Simpan Laporan</button>
     </div>
@@ -1291,12 +1673,13 @@ function exportBrandLaporanExcel(){
   XLSX.writeFile(wb,`Laporan_${auth.brand}_${lapMonth}_${R.yr}.xlsx`);
 }
 function printBrandLaporan(){
-  const html=$('lap-report').innerHTML;
-  const w=window.open('','_blank');
-  w.document.write(`<html><head><title>Laporan ${esc(auth.brand)} ${lapMonth}</title>
-    <style>body{font-family:Arial,sans-serif;padding:24px;color:#222}table{width:100%;border-collapse:collapse;margin:8px 0}th,td{border:1px solid #ccc;padding:6px 8px;text-align:left;font-size:12px}.section-title{font-size:15px;font-weight:700;margin:16px 0 6px;color:#233a2c}.kpis{display:flex;gap:10px;flex-wrap:wrap;margin:8px 0}.kpi{border:1px solid #ccc;border-radius:8px;padding:8px 12px;min-width:120px}.kpi h3{font-size:10px;color:#666;margin:0}.kpi .v{font-size:18px;font-weight:700}.note{font-size:11px;color:#888;margin:2px 0}textarea{width:100%;border:1px solid #ccc;border-radius:6px;padding:8px;font-size:12px;min-height:50px}.muted{color:#999}.tab,.toolbar{display:none}</style>
-    </head><body>${html}</body></html>`);
-  w.document.close(); setTimeout(()=>w.print(),300);
+  const yr=(lapAssemble()||{}).yr||new Date().getFullYear();
+  const html=buildLaporanPrintDoc('lap-report',{
+    brand: auth.brand,
+    judul: 'Laporan Bulanan — '+auth.brand,
+    periode: 'Periode '+lapMonth+' '+yr,
+  });
+  if(html) openPrintWindow(html);
 }
 </script>
 </body>
