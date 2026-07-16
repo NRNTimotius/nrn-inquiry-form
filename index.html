@@ -104,6 +104,22 @@ tbody tr.aging:hover{background:#f3d5d5}
 .pill.wait{background:var(--amber-bg);color:var(--amber)}
 .pill.cancel{background:var(--red-bg);color:var(--red)}
 .pill.sampling{background:var(--purple-bg);color:var(--purple)}
+/* Insight otomatis */
+.ins-box{background:var(--white);border:1.5px solid var(--cream2);border-radius:var(--radius);padding:16px;box-shadow:var(--shadow)}
+.ins-head{font-weight:700;font-size:13px;margin-bottom:12px;color:var(--text2)}
+.ins-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px}
+.ins-col{border:1.5px solid var(--cream2);border-radius:10px;padding:11px 12px;background:var(--cream)}
+.ins-col.good{border-color:#bfe0cc;background:var(--green-bg)}
+.ins-col.warn{border-color:#e8d49a;background:var(--gold-bg)}
+.ins-col.act{border-color:#e8b9b9;background:var(--red-bg)}
+.ins-col h4{font-size:12px;margin-bottom:7px}
+.ins-n{font-family:'DM Mono',monospace;opacity:.6;font-weight:400}
+.ins-col ul{margin:0;padding-left:16px}
+.ins-col li{font-size:12.5px;line-height:1.55;margin-bottom:6px}
+.ins-tag{display:inline-block;font-size:9.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:1px 5px;border-radius:4px;background:rgba(0,0,0,.07);margin-right:3px}
+.ins-col code{font-family:'DM Mono',monospace;font-size:11px;background:rgba(0,0,0,.06);padding:1px 4px;border-radius:3px}
+.ins-empty{font-size:12px;color:var(--text3)}
+.ins-foot{margin-top:11px;font-size:11.5px;color:var(--text3);line-height:1.5}
 .tag{font-size:10px;font-weight:700;padding:2px 8px;border-radius:6px;display:inline-block;background:var(--cream2);color:var(--text2)}
 .tag.wedding{background:#fbe4ec;color:#a8326a}
 .tag.corporate{background:var(--blue-bg);color:var(--blue)}
@@ -672,6 +688,147 @@ function drawCustomers(){
 $('cSearch').oninput = drawCustomers;
 ['cStatus','cVia','cJenis','cPic','cSort'].forEach(id=>{ $(id).onchange = drawCustomers; });
 
+/* ══════════ INSIGHT OTOMATIS (rule-based — tanpa API, gratis) ══════════
+   Merangkum data yang SUDAH ter-generate (Agenda, Sosmed, Inquiry, Anggaran)
+   jadi 3 kelompok: sudah jalan / perlu perhatian / butuh aksi.
+   Semua angka dihitung dari data — deterministik, hasil sama untuk data sama.
+   Read-only: TIDAK mengisi Analisa Kualitatif (itu tetap ditulis brand).
+   Blok ini identik di nrn-inquiry-form & nrn-dashboard — kalau diubah,
+   ubah di dua-duanya. */
+const INS = { erLow:1, erGood:3, reachDrop:20, doneGood:80, doneLow:50,
+              convLow:10, convGood:25, cancelHigh:40,
+              quoStale:30, sampStale:45, overspend:110, underspend:50 };
+const insEsc = s => String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const insPct = (a,b) => b ? (a/b*100) : 0;
+const insR   = v => Math.round(v);
+// Umur (hari) dari string tanggal; toleran thd 'yyyy-MM-dd' & 'dd MMM yyyy'.
+function insAge(s){
+  if(!s) return null;
+  const d = new Date(String(s).replace(' ','T'));
+  const d2 = isNaN(d.getTime()) ? new Date(String(s)) : d;
+  if(isNaN(d2.getTime())) return null;
+  return Math.floor((Date.now()-d2.getTime())/86400000);
+}
+
+// D = { brand, month, prevM, nextM, bCur{est,proj,act}, bNext, so{reach,views,follows,er}, sp,
+//       ag[], agDone, agProg, agLabel(fn), inqAll[], inqQuo[], inqSamp[], inqDeal[], inqCancel[] }
+function buildInsight(D){
+  const S=[], W=[], A=[];
+  const put=(g,scope,txt)=>g.push({scope,txt});
+
+  /* ── Anggaran ── */
+  const b = D.bCur;
+  if(!b.est && !b.proj && !b.act){
+    put(A,'Anggaran',`Belum ada data anggaran ${D.month} sama sekali — cek apakah card Trello bulan ini sudah punya <code>Estimated Budget:</code> dan nominal <code>(Rp ...)</code> di checklist.`);
+  } else {
+    if(!b.est && b.proj)
+      put(A,'Anggaran',`Proyeksi ${fmtRp(b.proj)} sudah jalan tapi <b>Budget Estimasi masih kosong</b>. Isi <code>Estimated Budget:</code> di deskripsi card supaya estimasi tidak terlewat.`);
+    if(b.est && b.proj > b.est*1.2)
+      put(W,'Anggaran',`Proyeksi ${fmtRp(b.proj)} melampaui estimasi ${fmtRp(b.est)} (+${insR(insPct(b.proj-b.est,b.est))}%) — rencana membengkak dari patokan awal.`);
+    if(b.proj){
+      const sp = insPct(b.act,b.proj);
+      if(sp > INS.overspend)
+        put(A,'Anggaran',`Aktual ${fmtRp(b.act)} = <b>${insR(sp)}% dari proyeksi</b> (lebih ${fmtRp(b.act-b.proj)}). Perlu penjelasan overspend.`);
+      else if(sp < INS.underspend)
+        put(W,'Anggaran',`Serapan baru ${insR(sp)}% dari proyeksi (${fmtRp(b.act)} dari ${fmtRp(b.proj)}) — banyak rencana belum jalan atau belum dicatat.`);
+      else
+        put(S,'Anggaran',`Aktual ${fmtRp(b.act)} terkendali di ${insR(sp)}% proyeksi.`);
+    }
+    if(!D.bNext.proj)
+      put(A,'Anggaran',`Belum ada proyeksi untuk ${D.nextM}. Isi nominal <code>(Rp ...)</code> di checklist card bulan depan supaya bisa diantisipasi.`);
+    else
+      put(S,'Anggaran',`Proyeksi ${D.nextM} sudah terisi ${fmtRp(D.bNext.proj)}.`);
+  }
+
+  /* ── Agenda ── */
+  const agT = D.ag.length;
+  if(!agT){
+    put(A,'Agenda',`Belum ada agenda ${D.month} — brand belum planning di Trello untuk bulan ini.`);
+  } else {
+    const dr = insPct(D.agDone,agT);
+    const overdue = D.ag.filter(x => D.agLabel(x.status)!=='Done' && x.sisaHari!=null && x.sisaHari<0);
+    const belum = agT - D.agDone - D.agProg;
+    if(dr >= INS.doneGood)      put(S,'Agenda',`${D.agDone}/${agT} agenda selesai (${insR(dr)}%) — eksekusi bulan ini rapi.`);
+    else if(dr >= INS.doneLow)  put(W,'Agenda',`Baru ${D.agDone}/${agT} agenda Done (${insR(dr)}%), ${D.agProg} masih In Progress.`);
+    else                        put(A,'Agenda',`Hanya ${D.agDone}/${agT} agenda Done (${insR(dr)}%) — eksekusi tertinggal jauh dari rencana.`);
+    if(overdue.length){
+      const s = overdue.slice(0,3).map(x=>insEsc(x.card||x.subtask)).join(', ');
+      put(A,'Agenda',`<b>${overdue.length} task lewat deadline</b> & belum Done: ${s}${overdue.length>3?', …':''}.`);
+    }
+    if(belum>0) put(W,'Agenda',`${belum} agenda belum tersentuh — belum ada checklist yang mulai jalan.`);
+  }
+
+  /* ── Social Media ── */
+  if(!D.so.reach && !D.so.views){
+    put(A,'Sosmed',`Data sosmed ${D.month} belum masuk — performa belum bisa dinilai. Pastikan laporan bulanan sudah di-submit.`);
+  } else {
+    if(D.sp.reach){
+      const rd = insPct(D.so.reach - D.sp.reach, D.sp.reach);
+      if(rd <= -INS.reachDrop)
+        put(A,'Sosmed',`Reach turun ${Math.abs(insR(rd))}% (${fmtNum(D.sp.reach)} → ${fmtNum(D.so.reach)}) — penurunan tajam, cek frekuensi & jenis konten.`);
+      else if(rd < 0)
+        put(W,'Sosmed',`Reach turun tipis ${Math.abs(insR(rd))}% vs ${D.prevM}.`);
+      else
+        put(S,'Sosmed',`Reach naik ${insR(rd)}% vs ${D.prevM} (${fmtNum(D.sp.reach)} → ${fmtNum(D.so.reach)}).`);
+    }
+    if(D.so.er){
+      if(D.so.er < INS.erLow)        put(A,'Sosmed',`Avg ER ${D.so.er.toFixed(2)}% di bawah benchmark ${INS.erLow}% — konten kurang memicu interaksi.`);
+      else if(D.so.er >= INS.erGood) put(S,'Sosmed',`Avg ER ${D.so.er.toFixed(2)}% sehat (di atas ${INS.erGood}%).`);
+      else                           put(W,'Sosmed',`Avg ER ${D.so.er.toFixed(2)}% wajar tapi belum kuat (target >${INS.erGood}%).`);
+      const ed = D.so.er - D.sp.er;
+      if(D.sp.er && ed <= -0.5) put(W,'Sosmed',`ER turun ${Math.abs(ed).toFixed(2)}pp vs ${D.prevM} — engagement melemah walau reach mungkin naik.`);
+    }
+    if(D.sp.follows>0 && D.so.follows<=0) put(W,'Sosmed',`Follows ${D.month} ${fmtNum(D.so.follows)} — pertumbuhan follower berhenti.`);
+  }
+
+  /* ── Inquiry ── */
+  const tot = D.inqAll.length;
+  if(!tot){
+    put(A,'Inquiry',`Belum ada inquiry tercatat — pipeline kosong, tidak ada yang bisa di-follow up.`);
+  } else {
+    const deal=D.inqDeal.length, cancel=D.inqCancel.length;
+    const conv = insPct(deal,tot);
+    const pipeArr = D.inqQuo.concat(D.inqSamp);
+    const pipeRp  = pipeArr.reduce((s,x)=>s+(x.nominal||0),0);
+    if(conv >= INS.convGood)     put(S,'Inquiry',`Konversi ${insR(conv)}% (${deal}/${tot} deal) — di atas target ${INS.convGood}%.`);
+    else if(conv < INS.convLow)  put(A,'Inquiry',`Konversi hanya ${insR(conv)}% (${deal}/${tot} deal) — mayoritas inquiry tidak jadi, cek kualitas lead & follow up.`);
+    else                         put(W,'Inquiry',`Konversi ${insR(conv)}% (${deal}/${tot} deal) — masih di bawah target ${INS.convGood}%.`);
+    if(pipeArr.length)
+      put(S,'Inquiry',`${pipeArr.length} inquiry masih berjalan senilai ${fmtRp(pipeRp)} — potensi closing yang perlu dikejar.`);
+    if(cancel && insPct(cancel,tot) > INS.cancelHigh)
+      put(W,'Inquiry',`Cancel ${insR(insPct(cancel,tot))}% (${cancel}/${tot}) — cek alasan cancel yang paling sering muncul.`);
+    const stale = D.inqQuo.filter(x=>{ const a=insAge(x.tglQuotation); return a!=null && a>INS.quoStale; });
+    if(stale.length)
+      put(A,'Inquiry',`<b>${stale.length} quotation mengendap >${INS.quoStale} hari</b> tanpa maju ke sampling: ${stale.slice(0,3).map(x=>insEsc(x.customer)).join(', ')}${stale.length>3?', …':''}.`);
+    const sStale = D.inqSamp.filter(x=>{ const a=insAge(x.tglSampling); return a!=null && a>INS.sampStale; });
+    if(sStale.length)
+      put(A,'Inquiry',`${sStale.length} sampling jalan >${INS.sampStale} hari belum closing: ${sStale.slice(0,3).map(x=>insEsc(x.customer)).join(', ')}${sStale.length>3?', …':''}.`);
+  }
+
+  return { sudah:S, perhatian:W, aksi:A };
+}
+
+function insightHtml(D){
+  const R = buildInsight(D);
+  const col = (title,cls,arr,empty) => `
+    <div class="ins-col ${cls}">
+      <h4>${title} <span class="ins-n">${arr.length}</span></h4>
+      ${arr.length ? '<ul>'+arr.map(f=>`<li><span class="ins-tag">${f.scope}</span> ${f.txt}</li>`).join('')+'</ul>'
+                   : `<div class="ins-empty">${empty}</div>`}
+    </div>`;
+  return `
+    <div class="section-title">🤖 Ringkasan &amp; Saran Otomatis</div>
+    <div class="ins-box">
+      <div class="ins-head">${D.brand?insEsc(D.brand)+' · ':''}${insEsc(D.month)} — ${R.sudah.length} berjalan baik · ${R.perhatian.length} perlu perhatian · ${R.aksi.length} butuh aksi</div>
+      <div class="ins-grid">
+        ${col('✅ Sudah jalan','good',R.sudah,'Belum ada capaian yang tercatat bulan ini.')}
+        ${col('⚠️ Perlu perhatian','warn',R.perhatian,'Tidak ada.')}
+        ${col('🎯 Butuh aksi','act',R.aksi,'Tidak ada yang mendesak.')}
+      </div>
+      <div class="ins-foot">Dihitung otomatis dari Agenda, Sosmed, Inquiry &amp; Anggaran dengan ambang tetap — <b>bukan pengganti</b> Analisa Kualitatif di bawah. Sifatnya indikatif; keputusan tetap di brand.</div>
+    </div>`;
+}
+
 /* ====== EDIT ====== */
 // Timeline read-only: tanggal tiap tahap, terisi otomatis oleh sistem & statis.
 function timelineHtml(x){
@@ -1028,6 +1185,17 @@ function lapAssemble(){
   const inqL=inq.filter(x=>statusKey_(x.status)==='cancel');
   return {yr,mi,prevM,nextM,bCur,bNext,so,sp,ag,agDone,agProg,inq,inqQ,inqS,inqW,inqL,sumK};
 }
+// Adapter: bentuk data lapAssemble() → kontrak buildInsight()
+function lapInsightData(R){
+  return {
+    brand: auth.brand, month: lapMonth, prevM: R.prevM, nextM: R.nextM,
+    bCur: R.bCur, bNext: R.bNext, so: R.so, sp: R.sp,
+    ag: R.ag, agDone: R.agDone, agProg: R.agProg, agLabel: agStatusLabel,
+    inqAll:  R.inq,
+    inqQuo:  R.inq.filter(x=>statusKey_(x.status)==='quotation'),
+    inqSamp: R.inqS, inqDeal: R.inqW, inqCancel: R.inqL,
+  };
+}
 function renderBrandLaporan(){
   const box=$('pane-laporan'), R=lapAssemble(), N=lapNotesBrand||{};
   const opt=AG_MON.map(m=>`<option ${m===lapMonth?'selected':''}>${m}</option>`).join('');
@@ -1042,6 +1210,8 @@ function renderBrandLaporan(){
       <button id="lapPdf" class="tab">🖨️ PDF</button><button id="lapExcel" class="tab">⬇ Excel</button></div>
     <div id="lap-report">
     <div class="section-title">📄 Laporan Bulanan — ${esc(auth.brand)} · ${lapMonth} ${R.yr}</div>
+
+    ${insightHtml(lapInsightData(R))}
 
     <div class="section-title">💰 Penggunaan Anggaran</div>
     <div class="kpis">
