@@ -808,25 +808,35 @@ function buildInsight(D){
   return { sudah:S, perhatian:W, aksi:A };
 }
 
-function insightHtml(D){
-  const R = buildInsight(D);
-  const col = (title,cls,arr,empty) => `
+// Renderer generik kotak insight — dipakai insight per-brand & lintas brand (dashboard).
+function insightBoxHtml(title, headTxt, R, footTxt){
+  const col = (t,cls,arr,empty) => `
     <div class="ins-col ${cls}">
-      <h4>${title} <span class="ins-n">${arr.length}</span></h4>
+      <h4>${t} <span class="ins-n">${arr.length}</span></h4>
       ${arr.length ? '<ul>'+arr.map(f=>`<li><span class="ins-tag">${f.scope}</span> ${f.txt}</li>`).join('')+'</ul>'
                    : `<div class="ins-empty">${empty}</div>`}
     </div>`;
   return `
-    <div class="section-title">🤖 Ringkasan &amp; Saran Otomatis</div>
+    <div class="section-title">${title}</div>
     <div class="ins-box">
-      <div class="ins-head">${D.brand?insEsc(D.brand)+' · ':''}${insEsc(D.month)} — ${R.sudah.length} berjalan baik · ${R.perhatian.length} perlu perhatian · ${R.aksi.length} butuh aksi</div>
+      <div class="ins-head">${headTxt}</div>
       <div class="ins-grid">
         ${col('✅ Sudah jalan','good',R.sudah,'Belum ada capaian yang tercatat bulan ini.')}
         ${col('⚠️ Perlu perhatian','warn',R.perhatian,'Tidak ada.')}
         ${col('🎯 Butuh aksi','act',R.aksi,'Tidak ada yang mendesak.')}
       </div>
-      <div class="ins-foot">Dihitung otomatis dari Agenda, Sosmed, Inquiry &amp; Anggaran dengan ambang tetap — <b>bukan pengganti</b> Analisa Kualitatif di bawah. Sifatnya indikatif; keputusan tetap di brand.</div>
+      <div class="ins-foot">${footTxt}</div>
     </div>`;
+}
+
+function insightHtml(D){
+  const R = buildInsight(D);
+  return insightBoxHtml(
+    '🤖 Ringkasan &amp; Saran Otomatis',
+    `${D.brand?insEsc(D.brand)+' · ':''}${insEsc(D.month)} — ${R.sudah.length} berjalan baik · ${R.perhatian.length} perlu perhatian · ${R.aksi.length} butuh aksi`,
+    R,
+    'Dihitung otomatis dari Agenda, Sosmed, Inquiry &amp; Anggaran dengan ambang tetap — <b>bukan pengganti</b> Analisa Kualitatif di bawah. Sifatnya indikatif; keputusan tetap di brand.'
+  );
 }
 
 /* ====== EDIT ====== */
