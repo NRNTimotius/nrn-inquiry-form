@@ -167,6 +167,7 @@ tr.lap-soon td{background:#fffaeb}
 .modal{width:min(560px,96vw);max-height:92vh;overflow:auto;background:var(--white);border-radius:16px;padding:22px}
 .modal h2{font-family:'DM Serif Display',serif;font-size:20px;color:var(--green);font-weight:400;margin-bottom:3px}
 .modal .muted{color:var(--text3);font-size:12.5px;margin-bottom:14px}
+table thead th{cursor:pointer;user-select:none}.sort-ind{opacity:.55;font-size:.85em}
 </style>
 </head>
 <body>
@@ -1812,6 +1813,97 @@ function printBrandLaporan(){
   });
   if(html) openPrintWindow(html);
 }
+/* ══════════ TABEL BISA DI-SORT (klik header thead) ══════════
+   Delegasi global: klik <th> → urutkan baris <tbody>. Bekerja untuk SEMUA
+   tabel data tanpa mengubah tiap fungsi render. Klik lagi = balik arah.
+   Baris "Total"/pesan-kosong (punya colspan) tetap menempel di bawah.
+   Blok identik di nrn-dashboard & nrn-inquiry-form — ubah di dua-duanya. */
+(function(){
+  var MON={jan:1,feb:2,mar:3,apr:4,mei:5,may:5,jun:6,jul:7,agu:8,agt:8,aug:8,sep:9,okt:10,oct:10,nov:11,nop:11,des:12,dec:12};
+  function txt(td){ return td && td.dataset && td.dataset.sort!=null ? td.dataset.sort : (td ? (td.textContent||'').trim() : ''); }
+  function isBlank(s){ s=String(s).trim().toLowerCase(); return s===''||s==='—'||s==='-'||s.indexOf('belum')===0; }
+  function toDate(s){
+    s=String(s).trim(); var m;
+    if((m=s.match(/^(\d{4})-(\d{2})-(\d{2})/)))      return Date.UTC(+m[1],+m[2]-1,+m[3]);
+    if((m=s.match(/^(\d{1,2})[\/](\d{1,2})[\/](\d{4})/))) return Date.UTC(+m[3],+m[2]-1,+m[1]);
+    if((m=s.match(/^(\d{1,2})\s+([A-Za-z]{3,})\.?\s+(\d{4})/))){ var mm=MON[m[2].slice(0,3).toLowerCase()]; if(mm) return Date.UTC(+m[3],mm-1,+m[1]); }
+    return null;
+  }
+  function toNum(s){
+    var t=String(s).replace(/rp\.?/ig,'').replace(/%/g,'').trim();
+    var m=t.match(/-?\d[\d.,]*/); if(!m) return null;
+    var n=m[0].replace(/\./g,'').replace(',', '.'); var v=parseFloat(n);
+    return isNaN(v)?null:v;
+  }
+  // Nama bulan Indonesia → urut kronologis, bukan alfabetis (Juni sebelum Juli)
+  var BULAN={januari:1,februari:2,maret:3,april:4,mei:5,juni:6,juli:7,agustus:8,september:9,oktober:10,november:11,desember:12};
+  function toBulan(s){ var v=BULAN[String(s).trim().toLowerCase()]; return v||null; }
+  // Tipe kolom dari mayoritas sel non-kosong: 'bulan' | 'date' | 'num' | 'str'
+  function colType(rows, i){
+    var b=0,d=0,n=0,c=0;
+    for(var r=0;r<rows.length;r++){
+      var s=txt(rows[r].children[i]); if(isBlank(s)) continue; c++;
+      if(toBulan(s)!=null) b++; else if(toDate(s)!=null) d++; else if(toNum(s)!=null) n++;
+    }
+    if(!c) return 'str';
+    if(b/c>=0.6) return 'bulan';
+    if(d/c>=0.6) return 'date';
+    if(n/c>=0.6) return 'num';
+    return 'str';
+  }
+  function keyOf(s,type){
+    if(isBlank(s)) return null;
+    if(type==='bulan') return toBulan(s);
+    if(type==='date')  return toDate(s);
+    if(type==='num')   return toNum(s);
+    return String(s).toLowerCase();
+  }
+  // Baris "penutup" (Total / pesan kosong): ada sel ber-colspan
+  function isFooter(tr){
+    for(var i=0;i<tr.children.length;i++){ if(tr.children[i].hasAttribute('colspan')) return true; }
+    return false;
+  }
+  function sortTable(table, thIdx, th){
+    var tbody=table.tBodies[0]; if(!tbody) return;
+    var all=Array.prototype.slice.call(tbody.rows);
+    var body=[], foot=[];
+    all.forEach(function(r){ (isFooter(r)?foot:body).push(r); });
+    if(body.length<2 && foot.length) { /* tetap boleh, tapi 1 baris tak perlu */ }
+    var type=colType(body, thIdx);
+    // Arah: simpan di dataset table
+    var prev=table.getAttribute('data-sort-col');
+    var dir = (prev==String(thIdx) && table.getAttribute('data-sort-dir')==='asc') ? 'desc' : 'asc';
+    table.setAttribute('data-sort-col', thIdx);
+    table.setAttribute('data-sort-dir', dir);
+    var sign = dir==='asc' ? 1 : -1;
+    body.sort(function(a,b){
+      var ka=keyOf(txt(a.children[thIdx]),type), kb=keyOf(txt(b.children[thIdx]),type);
+      if(ka==null && kb==null) return 0;
+      if(ka==null) return 1;          // kosong selalu di bawah
+      if(kb==null) return -1;
+      if(ka<kb) return -1*sign;
+      if(ka>kb) return 1*sign;
+      return 0;
+    });
+    body.forEach(function(r){ tbody.appendChild(r); });
+    foot.forEach(function(r){ tbody.appendChild(r); }); // Total tetap paling bawah
+    // Indikator panah di header
+    var heads=th.parentNode.children;
+    for(var i=0;i<heads.length;i++){ var s=heads[i].querySelector('.sort-ind'); if(s) s.remove(); }
+    var ind=document.createElement('span'); ind.className='sort-ind'; ind.textContent = dir==='asc'?' ▲':' ▼';
+    th.appendChild(ind);
+  }
+  document.addEventListener('click', function(e){
+    var th=e.target.closest ? e.target.closest('th') : null;
+    if(!th) return;
+    var thead=th.closest('thead'); if(!thead) return;
+    var table=th.closest('table'); if(!table) return;
+    if(th.hasAttribute('data-nosort')) return;   // header yg sengaja dikecualikan
+    if(th.onclick) return;                        // header yg sudah punya handler sendiri (mis. sort finance lama)
+    var row=th.parentNode, idx=Array.prototype.indexOf.call(row.children, th);
+    try{ sortTable(table, idx, th); }catch(err){}
+  }, false);
+})();
 </script>
 </body>
 </html>
